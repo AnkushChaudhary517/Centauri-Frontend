@@ -16,7 +16,8 @@ export default function Index() {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
+  const [primaryKeyword, setPrimaryKeyword] = useState<string>("");
+  const [content, setContent] = useState<string>("");
   const handleSignInSuccess = () => {
     setIsSignedIn(true);
   };
@@ -26,9 +27,11 @@ export default function Index() {
     setAnalysisResult(null);
   };
 
-  const handleAnalysisComplete = (result: AnalysisResponse) => {
+  const handleAnalysisComplete = (primaryKeyword: string,content: string, result: AnalysisResponse) => {
     setAnalysisResult(result);
     setIsLoading(false);
+    setPrimaryKeyword(primaryKeyword);
+    setContent(content ?? "");
   };
 
   const handleAnalysisError = () => {
@@ -43,7 +46,7 @@ export default function Index() {
       ) : (
         <ContentUpload onLogout={handleLogout} onAnalysisStart={() => setIsLoading(true)} onAnalysisComplete={handleAnalysisComplete} onAnalysisError={handleAnalysisError} />
       )}
-      <ScoreGauges analysisResult={analysisResult} isLoading={isLoading} />
+      <ScoreGauges analysisResult={analysisResult} isLoading={isLoading} primaryKeyword={primaryKeyword ?? ""} content={content} />
       <HowItWorks />
       <Improvement analysisResult={analysisResult} />
       <Pricing />

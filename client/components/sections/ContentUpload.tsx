@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
+import mammoth from "mammoth";
 import {
   analyzeSEO,
   buildAnalysisRequest,
@@ -11,7 +12,7 @@ import {
 
 interface ContentUploadProps {
   onAnalysisStart?: () => void;
-  onAnalysisComplete?: (result: AnalysisResponse) => void;
+  onAnalysisComplete?: (primaryKeyword: string, content: string, result: AnalysisResponse) => void;
   onAnalysisError?: () => void;
   onLogout?: () => void;
 }
@@ -30,30 +31,43 @@ export function ContentUpload({
   const { toast } = useToast();
 
   /* ---------- File Upload ---------- */
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
+  
     setFileName(file.name);
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      setContent(e.target?.result as string);
+  
+    try {
+      // DOCX handling
+      if (file.name.endsWith(".docx")) {
+        const arrayBuffer = await file.arrayBuffer();
+  
+        const result = await mammoth.extractRawText({
+          arrayBuffer,
+        });
+  
+        setContent(result.value);
+      } 
+      // TXT / MD handling
+      else {
+        const text = await file.text();
+        setContent(text);
+      }
+  
       toast({
         title: "Success",
         description: `File "${file.name}" loaded successfully`,
       });
-    };
-
-    reader.onerror = () => {
+    } catch (error) {
+      console.error("File read error:", error);
       toast({
         title: "Error",
         description: "Failed to read file",
         variant: "destructive",
       });
-    };
-
-    reader.readAsText(file);
+    }
   };
 
   /* ---------- Review ---------- */
@@ -104,7 +118,7 @@ export function ContentUpload({
       });
 
       const response = await analyzeSEO(request);
-      onAnalysisComplete?.(response);
+      onAnalysisComplete?.(primaryKeyword, content, response);
 
       toast({
         title: "Success",

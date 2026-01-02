@@ -1,9 +1,13 @@
 import "./ScoreGauges.css";
 import type { AnalysisResponse } from "@/services/seoAnalysis";
+import { exportSeoReport } from "@/utils/exportSeoReport";
+
 
 interface ScoreGaugesProps {
   analysisResult?: AnalysisResponse | null;
   isLoading?: boolean;
+  primaryKeyword?: string;
+  content?: string;
 }
 
 interface MetricItem {
@@ -78,6 +82,8 @@ const ScoreGauge = ({
 export default function ScoreGauges({
   analysisResult,
   isLoading,
+  primaryKeyword,
+  content,
 }: ScoreGaugesProps) {
   // Same guard as old component
   if (!analysisResult && !isLoading) {
@@ -137,7 +143,23 @@ export default function ScoreGauges({
             </p>
           </div>
         )}
+{analysisResult && (
+  <div className="flex justify-end mb-6">
 
+    <button
+    className="px-4 py-2 rounded-md bg-secondary text-white font-medium hover:opacity-90"
+  onClick={() =>
+    exportSeoReport(
+      analysisResult,
+      primaryKeyword,
+      content
+    )
+  }
+>
+  Export Report (.docx)
+</button>
+  </div>
+)}
         {/* Responsive Grid */}
         <div className="score-container">
           {metrics.map((metric, index) => (
@@ -149,6 +171,7 @@ export default function ScoreGauges({
               color={metric.color}
             />
           ))}
+          
         </div>
       </div>
     </div>
