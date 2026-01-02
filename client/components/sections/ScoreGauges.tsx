@@ -1,6 +1,6 @@
+import { exportSeoReport } from "@/utils/exportSeoReport";
 import "./ScoreGauges.css";
 import type { AnalysisResponse } from "@/services/seoAnalysis";
-import { exportSeoReport } from "@/utils/exportSeoReport";
 
 
 interface ScoreGaugesProps {
@@ -8,6 +8,7 @@ interface ScoreGaugesProps {
   isLoading?: boolean;
   primaryKeyword?: string;
   content?: string;
+  handleMetricLoading():void;
 }
 
 interface MetricItem {
@@ -84,6 +85,7 @@ export default function ScoreGauges({
   isLoading,
   primaryKeyword,
   content,
+  handleMetricLoading
 }: ScoreGaugesProps) {
   // Same guard as old component
   if (!analysisResult && !isLoading) {
@@ -144,8 +146,15 @@ export default function ScoreGauges({
           </div>
         )}
 {analysisResult && (
-  <div className="flex justify-end mb-6">
-
+  <div className="flex justify-end mb-6 gap-x-4">
+<button
+    className="px-4 py-2 rounded-md bg-secondary text-white font-medium hover:opacity-90"
+  onClick={() =>
+    handleMetricLoading()
+  }
+>
+  Analyze More Content
+</button>
     <button
     className="px-4 py-2 rounded-md bg-secondary text-white font-medium hover:opacity-90"
   onClick={() =>

@@ -16,6 +16,7 @@ export default function Index() {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isMetricLoading, setIsMetricLoading] = useState(true);
   const [primaryKeyword, setPrimaryKeyword] = useState<string>("");
   const [content, setContent] = useState<string>("");
   const handleSignInSuccess = () => {
@@ -31,25 +32,29 @@ export default function Index() {
     setAnalysisResult(result);
     setIsLoading(false);
     setPrimaryKeyword(primaryKeyword);
+    setIsMetricLoading(false);
     setContent(content ?? "");
   };
 
   const handleAnalysisError = () => {
     setIsLoading(false);
   };
-
+  const handleMetricLoading = () => {
+    setIsLoading(true);
+    setIsMetricLoading(true);
+  };
   return (
     <div className="min-h-screen bg-white">
-      <Hero />
+      <Hero onLogout={handleLogout} isSignedIn={isSignedIn}/>
       {!isSignedIn ? (
         <SignUp onSignInSuccess={handleSignInSuccess} />
       ) : (
-        <ContentUpload onLogout={handleLogout} onAnalysisStart={() => setIsLoading(true)} onAnalysisComplete={handleAnalysisComplete} onAnalysisError={handleAnalysisError} />
+        isMetricLoading && <ContentUpload  onAnalysisStart={() => setIsLoading(true)} onAnalysisComplete={handleAnalysisComplete} onAnalysisError={handleAnalysisError} />
       )}
-      <ScoreGauges analysisResult={analysisResult} isLoading={isLoading} primaryKeyword={primaryKeyword ?? ""} content={content} />
+      {!isLoading && (<ScoreGauges handleMetricLoading ={handleMetricLoading} analysisResult={analysisResult} isLoading={isLoading} primaryKeyword={primaryKeyword ?? ""} content={content} />)}
       <HowItWorks />
       <Improvement analysisResult={analysisResult} />
-      <Pricing />
+      {/*<Pricing />*/}
       <TrialCTA />
       <Footer />
     </div>

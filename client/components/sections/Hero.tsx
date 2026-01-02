@@ -1,6 +1,21 @@
-export function Hero() {
+import { Button } from "../ui/button";
+interface HeroProps {
+  onLogout?: () => void;
+  isSignedIn : () => false;
+}
+export function Hero({
+  onLogout,
+  isSignedIn
+}) {
   return (
     <div className="hero-section bg-primary text-primary-foreground overflow-hidden">
+      {isSignedIn && (<Button
+              onClick={onLogout}
+              variant="outline"
+              className="absolute right-5 top-5 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50"
+            >
+              Logout
+            </Button>)}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           {/* Left side - Content */}

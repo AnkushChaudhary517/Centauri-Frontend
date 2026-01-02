@@ -14,14 +14,13 @@ interface ContentUploadProps {
   onAnalysisStart?: () => void;
   onAnalysisComplete?: (primaryKeyword: string, content: string, result: AnalysisResponse) => void;
   onAnalysisError?: () => void;
-  onLogout?: () => void;
 }
 
 export function ContentUpload({
   onAnalysisStart,
   onAnalysisComplete,
   onAnalysisError,
-  onLogout,
+
 }: ContentUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [content, setContent] = useState("");
@@ -158,14 +157,7 @@ export function ContentUpload({
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
               Your <span className="text-secondary">Content</span>
-            </h2>
-            <Button
-              onClick={onLogout}
-              variant="outline"
-              className="text-sm border border-gray-300 text-gray-700 hover:bg-gray-50"
-            >
-              Logout
-            </Button>
+            </h2>           
           </div>
 
           {/* Primary Keyword */}
