@@ -11,6 +11,7 @@ import { Footer } from "@/components/sections/Footer";
 import type { AnalysisResponse } from "@/services/seoAnalysis";
 import { MetricsDisplay } from "@/components/sections/MetricsDisplay";
 import ScoreGauges from "@/components/sections/ScoreGauges";
+import { useAuth } from "@/utils/AuthContext";
 
 export default function Index() {
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -19,13 +20,15 @@ export default function Index() {
   const [isMetricLoading, setIsMetricLoading] = useState(true);
   const [primaryKeyword, setPrimaryKeyword] = useState<string>("");
   const [content, setContent] = useState<string>("");
+  const { isAuthenticated , isAuthInitialized, logout} = useAuth();
   const handleSignInSuccess = () => {
     setIsSignedIn(true);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setIsSignedIn(false);
     setAnalysisResult(null);
+    await logout();
   };
 
   const handleAnalysisComplete = (primaryKeyword: string,content: string, result: AnalysisResponse) => {
@@ -45,13 +48,13 @@ export default function Index() {
   };
   return (
     <div className="min-h-screen bg-white">
-      <Hero onLogout={handleLogout} isSignedIn={isSignedIn}/>
-      {!isSignedIn ? (
+      <Hero onLogout={handleLogout} isSignedIn={isAuthenticated}/>
+      {!isAuthenticated ? (
         <SignUp onSignInSuccess={handleSignInSuccess} />
       ) : (
         isMetricLoading && <ContentUpload  onAnalysisStart={() => setIsLoading(true)} onAnalysisComplete={handleAnalysisComplete} onAnalysisError={handleAnalysisError} />
       )}
-      {!isLoading && (<ScoreGauges handleMetricLoading ={handleMetricLoading} analysisResult={analysisResult} isLoading={isLoading} primaryKeyword={primaryKeyword ?? ""} content={content} />)}
+      {!isLoading && (<ScoreGauges handleMetricLoading ={() => handleMetricLoading()} analysisResult={analysisResult} isLoading={isLoading} primaryKeyword={primaryKeyword ?? ""} content={content} />)}
       <HowItWorks />
       <Improvement analysisResult={analysisResult} />
       {/*<Pricing />*/}
@@ -60,3 +63,4 @@ export default function Index() {
     </div>
   );
 }
+

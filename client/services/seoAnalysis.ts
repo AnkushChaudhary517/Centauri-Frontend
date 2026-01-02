@@ -78,7 +78,7 @@ export interface AnalysisRequest {
   
   export async function analyzeSEO(request: AnalysisRequest): Promise<AnalysisResponse> {
     try {
-      const response = await fetch("https://localhost:7206/api/Seo/analyze", {
+      const response = await fetch("http://ec2-13-126-103-12.ap-south-1.compute.amazonaws.com:3000/api/Seo/analyze", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

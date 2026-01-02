@@ -3,6 +3,7 @@ interface HeroProps {
   onLogout?: () => void;
   isSignedIn : () => false;
 }
+
 export function Hero({
   onLogout,
   isSignedIn

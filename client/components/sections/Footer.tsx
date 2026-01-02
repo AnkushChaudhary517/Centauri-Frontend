@@ -5,11 +5,15 @@ export function Footer() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-primary rounded flex items-center justify-center">
-              <span className="text-white font-bold text-sm">C</span>
-            </div>
-            <span className="text-primary font-bold">centauri</span>
-          </div>
+  <div className="h-6 bg-white rounded flex items-center justify-center overflow-hidden">
+    <img
+      src="/assets/vectors/footer-logo.png"
+      alt="Centauri logo"
+      className="w-full h-full object-contain"
+    />
+  </div>
+</div>
+
 
           {/* Copyright */}
           <p className="text-sm text-gray-600 text-center sm:text-right">
