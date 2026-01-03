@@ -69,7 +69,8 @@ const ScoreGauge = ({
         {/* Center text */}
         <div className="gauge-center">
           <div className="gauge-value" style={{ color }}>
-            {value.toFixed(1)}%
+            {Math.round(value)
+            }
           </div>
           <div className="gauge-max">of {max}</div>
         </div>
@@ -146,7 +147,7 @@ export default function ScoreGauges({
           </div>
         )}
 {analysisResult && (
-  <div className="flex justify-end mb-6 gap-x-4">
+  <div className="score-buttons flex justify-end mb-6 gap-x-4" >
 <button
     className="px-4 py-2 rounded-md bg-secondary text-white font-medium hover:opacity-90"
   onClick={() =>
@@ -171,17 +172,33 @@ export default function ScoreGauges({
 )}
         {/* Responsive Grid */}
         <div className="score-container">
-          {metrics.map((metric, index) => (
-            <ScoreGauge
-              key={index}
-              label={metric.label}
-              value={metric.value}
-              max={metric.max}
-              color={metric.color}
-            />
-          ))}
-          
-        </div>
+  {/* Top big gauges */}
+  <div className="score-top">
+    {metrics.slice(0, 2).map((metric, index) => (
+      <ScoreGauge
+        key={index}
+        label={metric.label}
+        value={metric.value}
+        max={metric.max}
+        color={metric.color}
+      />
+    ))}
+  </div>
+
+  {/* Bottom small gauges */}
+  <div className="score-bottom">
+    {metrics.slice(2).map((metric, index) => (
+      <ScoreGauge
+        key={index}
+        label={metric.label}
+        value={metric.value}
+        max={metric.max}
+        color={metric.color}
+      />
+    ))}
+  </div>
+</div>
+
       </div>
     </div>
   );

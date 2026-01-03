@@ -3,17 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { authAPI } from "@/utils/AuthApi";
+import { useAuth } from "@/utils/AuthContext";
 
 interface SignUpProps {
   onSignInSuccess?: () => void;
+  onCreateAccount?: () => void;
 }
 
-export function SignUp({ onSignInSuccess }: SignUpProps) {
+export function SignUp({ onSignInSuccess, onCreateAccount }: SignUpProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-
+  const { login} = useAuth();
   // ✅ EMAIL / PASSWORD LOGIN
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,9 +32,9 @@ export function SignUp({ onSignInSuccess }: SignUpProps) {
     try {
       setIsLoading(true);
 
-      const response = await authAPI.login(email, password);
+      const response = await login(email, password);
 
-      if (response.success) {
+      if (response) {
         toast({
           title: "Success",
           description: "Logged in successfully",
@@ -40,7 +42,7 @@ export function SignUp({ onSignInSuccess }: SignUpProps) {
 
         onSignInSuccess?.();
       } else {
-        throw new Error(response.message || "Login failed");
+        throw new Error("Login failed");
       }
     } catch (err: any) {
       toast({
@@ -125,15 +127,6 @@ export function SignUp({ onSignInSuccess }: SignUpProps) {
                 disabled={isLoading}
               />
 
-              <div className="text-right">
-                <a
-                  href="#"
-                  className="text-sm text-secondary hover:underline"
-                >
-                  Forgot Password?
-                </a>
-              </div>
-
               <Button
                 type="submit"
                 disabled={isLoading}
@@ -142,6 +135,15 @@ export function SignUp({ onSignInSuccess }: SignUpProps) {
                 {isLoading ? "Please wait..." : "Login"}
               </Button>
             </form>
+            <p className="mt-4 text-center text-sm text-gray-600">
+            Don’t have an account?{" "}
+            <button
+              onClick={onCreateAccount}
+              className="text-secondary font-medium hover:underline"
+            >
+              Create one
+            </button>
+          </p>
           </div>
         </div>
       </div>

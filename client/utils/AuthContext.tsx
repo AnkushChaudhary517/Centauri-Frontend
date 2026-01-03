@@ -87,18 +87,32 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   ): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
+  
     try {
       const response = await authAPI.login(email, password);
-
-      if (response.success) {
-        const userData: User = response.data.user;
-        setUser(userData);
-        localStorage.setItem("user", JSON.stringify(userData));
-        return true;
+  
+      if (!response.success) {
+        setError(response.error?.message || "Login failed");
+        return false;
       }
-
-      setError(response.error?.message || "Login failed");
-      return false;
+  
+      // ✅ map API response correctly
+      const userData: User = {
+        userId: response.data.userId,
+        email: response.data.email,
+        firstName: response.data.firstName,
+        lastName: response.data.lastName,
+        profileImage: response.data.profileImage,
+      };
+  
+      // ✅ STORE TOKENS (CRITICAL)
+      setTokens(response.data.token, response.data.refreshToken);
+  
+      // ✅ SET USER (this flips isAuthenticated → true)
+      setUser(userData);
+      localStorage.setItem("user", JSON.stringify(userData));
+  
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
       return false;

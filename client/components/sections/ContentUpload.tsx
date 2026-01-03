@@ -152,6 +152,17 @@ export function ContentUpload({
   return (
     <div className="content-upload-section bg-white py-8 sm:py-12 lg:py-16">
       <div className="max-w-2xl mx-auto px-4">
+      {isAnalyzing && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div className="flex flex-col items-center gap-4">
+      <div className="h-12 w-12 border-4 border-white border-t-transparent rounded-full animate-spin" />
+      <p className="text-white text-lg font-medium">
+        Analyzing your content…
+      </p>
+    </div>
+  </div>
+)}
+
         <div className="bg-white border border-gray-200 rounded-xl p-8 sm:p-10 shadow-sm">
           {/* Header */}
           <div className="flex justify-between items-center mb-6">
@@ -166,11 +177,12 @@ export function ContentUpload({
               Primary Keyword
             </label>
             <Input
-              type="text"
-              placeholder="Enter your primary keyword"
-              value={primaryKeyword}
-              onChange={(e) => setPrimaryKeyword(e.target.value)}
-            />
+  type="text"
+  placeholder="Enter your primary keyword"
+  value={primaryKeyword}
+  onChange={(e) => setPrimaryKeyword(e.target.value)}
+  disabled={isAnalyzing}
+/>
           </div>
 
           {/* Textarea */}
@@ -193,24 +205,12 @@ export function ContentUpload({
             </Button>
 
             <Button
-              onClick={handleReview}
-              variant="outline"
-              className="flex-1"
-              disabled={isAnalyzing}
-            >
-              Review your Content
-            </Button>
-          </div>
+  onClick={handleAnalyze}
+  disabled={isAnalyzing}
+  className="flex-1 flex items-center justify-center gap-2"
+>Analyze
+</Button>
 
-          {/* Analyze */}
-          <div className="flex justify-center mt-6">
-            <Button
-              onClick={handleAnalyze}
-              disabled={isAnalyzing}
-              className="px-10 py-2.5 bg-secondary text-white font-semibold"
-            >
-              {isAnalyzing ? "Analyzing..." : "Analyze"}
-            </Button>
           </div>
 
           {/* Hidden File Input */}
