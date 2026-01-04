@@ -1,4 +1,5 @@
-const API_BASE_URL = "http://ec2-13-126-103-12.ap-south-1.compute.amazonaws.com:3000/api/v1"
+const API_BASE_URL = "http://ec2-13-126-103-12.ap-south-1.compute.amazonaws.com:3000/api/v1";
+//"
 //'https://localhost:7206/api/v1';
 
 export const getToken = () => localStorage.getItem('token');

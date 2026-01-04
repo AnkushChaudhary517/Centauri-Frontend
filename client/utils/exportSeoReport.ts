@@ -58,7 +58,28 @@ import {
         ],
         spacing: { after: 240 },
       });
-  
+      const sectionTitle = (text: string) =>
+        new Paragraph({
+          children: [new TextRun({ text, bold: true })],
+          spacing: { before: 300, after: 200 },
+        });
+      
+      const labeledLine = (
+        label: string,
+        value: string,
+        options?: { strike?: boolean }
+      ) =>
+        new Paragraph({
+          children: [
+            new TextRun({ text: `${label}: `, bold: true }),
+            new TextRun({
+              text: value || "—",
+              strike: options?.strike ?? false,
+            }),
+          ],
+          spacing: { after: 120 },
+        });
+      
     /* ---------------- Document ---------------- */
   
     const doc = new Document({
@@ -138,6 +159,41 @@ import {
   
               return actionItem(priority, rec.issue, rec.whatToChange);
             }),
+
+            H2("Improvement Action Plan"),
+
+...analysis.recommendations.flatMap((rec) => {
+  const priority =
+    rec.issue.toLowerCase().includes("ai") ||
+    rec.issue.toLowerCase().includes("credibility")
+      ? "HIGH"
+      : "MEDIUM";
+
+  const blocks: Paragraph[] = [];
+
+  // Section header
+  blocks.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: `[${priority}] ${rec.issue}: `,
+          bold: true,
+        }),
+        new TextRun({ text: rec.whatToChange }),
+      ],
+      spacing: { before: 300, after: 200 },
+    })
+  );
+  blocks.push(
+    labeledLine("Original", rec.examples.bad, { strike: true }),
+    labeledLine("Fix", rec.examples.good),
+    new Paragraph({ spacing: { after: 200 } }) // spacing between example blocks
+  );
+  
+
+  return blocks;
+}),
+
   
             /* ---------- Original Content ---------- */
             H2("Original Article Content"),

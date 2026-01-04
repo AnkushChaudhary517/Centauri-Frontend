@@ -39,6 +39,8 @@ export interface AnalysisRequest {
     recommendations: Array<{
       issue: string;
       whatToChange: string;
+      examples:Example
+      Improves:string[]
     }>;
     inputIntegrity: {
       status: string;
@@ -46,6 +48,10 @@ export interface AnalysisRequest {
         [key: string]: boolean;
       };
     };
+  }
+  export interface Example{
+    good:string;
+    bad:string;
   }
   
   // Parse file content to extract metadata
@@ -78,7 +84,9 @@ export interface AnalysisRequest {
   
   export async function analyzeSEO(request: AnalysisRequest): Promise<AnalysisResponse> {
     try {
-      const response = await fetch("http://ec2-13-126-103-12.ap-south-1.compute.amazonaws.com:3000/api/Seo/analyze", {
+      //let url = "https://localhost:7206/api/Seo/analyze";
+      let url ="http://ec2-13-126-103-12.ap-south-1.compute.amazonaws.com:3000/api/Seo/analyze"
+      const response = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

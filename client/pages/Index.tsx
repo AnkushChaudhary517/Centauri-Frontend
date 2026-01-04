@@ -10,6 +10,7 @@ import type { AnalysisResponse } from "@/services/seoAnalysis";
 import ScoreGauges from "@/components/sections/ScoreGauges";
 import { useAuth } from "@/utils/AuthContext";
 import { CreateAccount } from "@/components/sections/CreatEAccount";
+import TabsWithSvg from "@/components/sections/TabsWithSvg";
 
 export default function Index() {
   const [analysisResult, setAnalysisResult] =
@@ -88,7 +89,8 @@ export default function Index() {
 
       {/* 📄 STATIC SECTIONS */}
       <HowItWorks />
-      <Improvement analysisResult={analysisResult} />
+      {/*<Improvement analysisResult={analysisResult} />*/}
+      <TabsWithSvg></TabsWithSvg>
       <TrialCTA />
       <Footer />
     </div>
