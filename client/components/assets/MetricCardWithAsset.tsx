@@ -24,7 +24,7 @@ interface MetricCardProps {
 export function MetricCardBase({
   title,
   value,
-  unit = "",
+  unit,
   status = "good",
   backgroundAsset = ASSETS.backgrounds.base,
   icon,
@@ -64,7 +64,7 @@ export function MetricCardBase({
         {/* Value with tooltip */}
         <div className="relative inline-block" title={tooltip}>
           <div className="flex items-center justify-center gap-2">
-            <span className="text-4xl font-extrabold text-gray-800">{value}</span>
+            <span className="text-4xl font-extrabold text-gray-800">{value} {!unit?"%":""}</span>
             {unit && <span className="text-sm font-semibold text-gray-500">{unit}</span>}
           </div>
         </div>
@@ -141,7 +141,6 @@ export function PlagiarismCard({
     <MetricCardBase
       title="Plagiarism"
       value={value}
-      unit="of 100"
       status="good"
       backgroundAsset={ASSETS.backgrounds.base2}
       className={className}

@@ -13,18 +13,36 @@ export interface AnalysisRequest {
       CitationRules: string;
     };
   }
-  
+  export interface Recommendation {
+    issue: string;
+    whatToChange: string;
+    examples: Example;
+    improves: string[];
+    priority:string;
+  }
+export interface RecommendationItem{
+  overall: Recommendation[];
+  sectionLevel: Recommendation[];
+  sentenceLevel: Recommendation[];
+}
+
+  export interface RecommendationResponse{
+    recommendations:RecommendationItem
+    status:string;
+  }
   export interface AnalysisResponse {
     requestId: string;
     status: string;
     seoScore: number;
     finalScores: {
       userVisible: {
+        expertiseScore: number | null;
         seoScore: number | null;
         relevanceScore: number | null;
         eeatScore: number | null;
         readabilityScore: number | null;
         aiIndexingScore: number | null;
+        authorityScore: number | null;
       };
     };
     level2Scores: {
@@ -36,16 +54,10 @@ export interface AnalysisRequest {
     level4Scores: {
       [key: string]: number;
     };
-    recommendations: Array<{
-      issue: string;
-      whatToChange: string;
-      examples:Example
-      Improves:string[]
-    }>;
     inputIntegrity: {
       status: string;
       received: {
-        [key: string]: boolean;
+        [key: string]: string;
       };
     };
   }
@@ -58,38 +70,57 @@ export interface AnalysisRequest {
   export function parseFileContent(content: string): Partial<AnalysisRequest> {
     const parsed: Partial<AnalysisRequest> = {};
   
-    // Look for common metadata patterns
-    const titleMatch = content.match(/(?:title|meta title|h1):\s*([^\n]+)/i);
-    if (titleMatch) {
-      parsed.MetaTitle = titleMatch[1].trim();
+    if (!content || typeof content !== "string") {
+      return parsed;
     }
   
-    const descriptionMatch = content.match(/(?:description|meta description):\s*([^\n]+)/i);
-    if (descriptionMatch) {
-      parsed.MetaDescription = descriptionMatch[1].trim();
+    // Simple HTML detection (safe & fast)
+    const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(content);
+  
+    if (!looksLikeHtml) {
+      // ❌ HTML nahi hai → kuch bhi parse mat karo
+      return parsed;
     }
   
-    const keywordMatch = content.match(/(?:keyword|primary keyword):\s*([^\n]+)/i);
-    if (keywordMatch) {
-      parsed.PrimaryKeyword = keywordMatch[1].trim();
-    }
+    try {
+      const container = document.createElement("div");
+      container.innerHTML = content;
   
-    const urlMatch = content.match(/(?:url|slug):\s*([^\n]+)/i);
-    if (urlMatch) {
-      parsed.Url = urlMatch[1].trim();
+      const paragraphs = container.querySelectorAll("p");
+  
+      paragraphs.forEach((p) => {
+        const text = p.innerText?.trim();
+        if (!text) return;
+  
+        if (/^meta\s*title\s*:/i.test(text)) {
+          parsed.MetaTitle = text.split(":").slice(1).join(":").trim();
+        }
+  
+        if (/^meta\s*description\s*:/i.test(text)) {
+          parsed.MetaDescription = text.split(":").slice(1).join(":").trim();
+        }
+  
+        if (/^(url\s*slug|url|slug)\s*:/i.test(text)) {
+          parsed.Url = text.split(":").slice(1).join(":").trim();
+        }
+      });
+    } catch {
+      // ❌ Silently fail — no exception
+      return parsed;
     }
   
     return parsed;
   }
   
+  
   export async function analyzeSEO(request: AnalysisRequest): Promise<AnalysisResponse> {
     try {
       //let url = "https://localhost:7206/api/Seo/analyze";
-      let url ="http://ec2-13-126-103-12.ap-south-1.compute.amazonaws.com:3000/api/Seo/analyze"
+      let url ="http://ec2-15-206-164-71.ap-south-1.compute.amazonaws.com:3000/api/Seo/analyze"
       const response = await fetch(url, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
         body: JSON.stringify(request),
       });
@@ -117,21 +148,15 @@ export interface AnalysisRequest {
         Raw: fileContent,
         Format: "text",
       },
-      PrimaryKeyword: overrides?.PrimaryKeyword || parsed.PrimaryKeyword || "fractional cfo cost",
-      SecondaryKeywords: overrides?.SecondaryKeywords || [
-        "fractional cfo pricing",
-        "fractional cfo cost in 2025",
-        "fractional cfo rates",
-        "fractional cfo services",
-        "hire a fractional cfo",
-      ],
-      MetaTitle: overrides?.MetaTitle || parsed.MetaTitle || "How Much Does a Fractional CFO Cost in 2025?",
-      MetaDescription: overrides?.MetaDescription || parsed.MetaDescription || "Explore fractional CFO pricing in 2025, including hourly rates, monthly retainers, and how to choose the right CFO for your startup.",
-      Url: overrides?.Url || parsed.Url || "/fractional-cfo-cost",
+      PrimaryKeyword: overrides?.PrimaryKeyword || parsed.PrimaryKeyword,
+      SecondaryKeywords: overrides?.SecondaryKeywords,
+      MetaTitle: overrides?.MetaTitle || parsed.MetaTitle,
+      MetaDescription: overrides?.MetaDescription || parsed.MetaDescription,
+      Url: overrides?.Url || parsed.Url,
       Context: {
         Locale: "en-US",
         CitationRules: "default",
-      },
+      }
     };
   }
   

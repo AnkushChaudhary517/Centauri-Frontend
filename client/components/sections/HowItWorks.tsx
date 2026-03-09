@@ -2,9 +2,9 @@ export function HowItWorks() {
   const steps = [
     {
       number: "1",
-      title: "Sign up and connect",
+      title: "Sign up and log in",
       description:
-        "Create your account and link your web content to get started.",
+        "Fill the signup form, confirm your email, and log in to your dashboard.",
       icon: "👤",
       color: "bg-orange-100",
       textColor: "text-orange-600",
@@ -12,9 +12,9 @@ export function HowItWorks() {
     },
     {
       number: "2",
-      title: "Upload or paste URL",
+      title: "Upload or paste your content",
       description:
-        "Upload a document or paste your URL and let AI magic happen.",
+        "Upload a document or paste your draft directly into the editor. Add the primary keyword for analysis..",
       icon: "📤",
       color: "bg-blue-100",
       textColor: "text-blue-600",
@@ -22,9 +22,9 @@ export function HowItWorks() {
     },
     {
       number: "3",
-      title: "Rich the review using our content ranking tool",
+      title: "Run the review and see your scores",
       description:
-        "Check, modify, and perfect your content with precise recommendations.",
+        "Click “Review” to get SEO, AI Indexing, Contextual Plagiarism, and Authority scores on a single screen.",
       icon: "✓",
       color: "bg-purple-100",
       textColor: "text-purple-600",
@@ -32,9 +32,9 @@ export function HowItWorks() {
     },
     {
       number: "4",
-      title: "Deploy your piece",
+      title: "Download your report with suggestions",
       description:
-        "Publish your optimized content with confidence and track performance.",
+        "Export a file that includes your content, section-wise comments, and clear suggestions on how to improve.",
       icon: "🚀",
       color: "bg-green-100",
       textColor: "text-green-600",

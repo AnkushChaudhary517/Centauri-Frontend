@@ -34,7 +34,7 @@ const InsightCard: React.FC<InsightCardProps> = ({
     <div className="bg-white border border-blue-500 rounded-3xl p-6 sm:p-10 grid grid-cols-1 lg:grid-cols-2 gap-8">
       {/* LEFT */}
       <div>
-        <h3 className="text-2xl font-bold text-gray-900 mb-4">{title}</h3>
+        <h3 className="text-2xl font-bold text-gray-900 mb-4" style={{marginBottom:"3rem"}}>{title}</h3>
         <p className="text-gray-600 mb-6 max-w-md">{description}</p>
       </div>
 
@@ -46,7 +46,7 @@ const InsightCard: React.FC<InsightCardProps> = ({
         <p className="text-sm text-gray-500 mb-6">{summaryText}</p>
 
         {/* CIRCULAR SVG */}
-        <svg viewBox="0 0 120 120" className="w-40 h-40 mb-6">
+        <svg viewBox="0 0 120 120" className="w-40 h-40 mb-6" style={{marginLeft:"5rem"}}>
           <circle
             cx="60"
             cy="60"

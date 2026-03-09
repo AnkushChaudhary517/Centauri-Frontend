@@ -1,14 +1,55 @@
 import { exportSeoReport } from "@/utils/exportSeoReport";
 import "./ScoreGauges.css";
-import type { AnalysisResponse } from "@/services/seoAnalysis";
+import type {
+  AnalysisResponse,
+  AnalysisRequest,
+  RecommendationResponse,
+} from "@/services/seoAnalysis";
+import { useEffect, useState } from "react";
+import { DocumentEditor } from "./DocumentEditor";
+import { useRecommendations } from "@/hooks/fetch-recommendations";
 
+/* ================= POLLING CONFIG ================= */
+
+const MAX_ATTEMPTS = 10;
+const POLL_INTERVAL = 10_000; // 10 seconds
+
+/* ================= API ================= */
+
+async function GetRecommendations(
+  request: AnalysisRequest
+): Promise<RecommendationResponse> {
+  //const url = "https://localhost:7206/api/Seo/recommendations";
+  let url ="http://ec2-15-206-164-71.ap-south-1.compute.amazonaws.com:3000/api/Seo/recommendations"
+  //let url ="http://ec2-13-126-103-12.ap-south-1.compute.amazonaws.com:3000/api/Seo/recommendations"
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      RequestId: localStorage.getItem("RequestId") ?? "",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new Error("API error");
+  }
+
+  return response.json();
+}
+
+/* ================= TYPES ================= */
 
 interface ScoreGaugesProps {
   analysisResult?: AnalysisResponse | null;
   isLoading?: boolean;
   primaryKeyword?: string;
   content?: string;
-  handleMetricLoading():void;
+  originalContent?: string;
+  analysisRequest?:AnalysisRequest|null
+  handleMetricLoading(): void;
+  onEditorSave?: (data: { updatedContent: string; keyword: string }) => void;
 }
 
 interface MetricItem {
@@ -16,6 +57,7 @@ interface MetricItem {
   value: number;
   max: number;
   color: string;
+  showPercentage: boolean;
 }
 
 /* ---------------- Gauge Component ---------------- */
@@ -25,6 +67,7 @@ interface ScoreGaugeProps {
   value: number;
   max?: number;
   color: string;
+  showPercentage: boolean;
 }
 
 const ScoreGauge = ({
@@ -32,6 +75,7 @@ const ScoreGauge = ({
   value,
   max = 100,
   color,
+  showPercentage,
 }: ScoreGaugeProps) => {
   const radius = 45;
   const circumference = Math.PI * radius;
@@ -40,20 +84,16 @@ const ScoreGauge = ({
 
   return (
     <div className="gauge-card">
-      {/* Label on top */}
       <div className="gauge-label">{label}</div>
 
       <div className="gauge-wrapper">
         <svg viewBox="0 0 120 70" className="gauge">
-          {/* Background */}
           <path
             d="M15,60 A45,45 0 0,1 105,60"
             fill="none"
             stroke="#e5e7eb"
             strokeWidth="10"
           />
-
-          {/* Progress */}
           <path
             d="M15,60 A45,45 0 0,1 105,60"
             fill="none"
@@ -66,13 +106,12 @@ const ScoreGauge = ({
           />
         </svg>
 
-        {/* Center text */}
         <div className="gauge-center">
           <div className="gauge-value" style={{ color }}>
-            {Math.round(value)
-            }
+            {Math.round(value)}
+            {showPercentage ? "%" : ""}
           </div>
-          <div className="gauge-max">of {max}</div>
+          {!showPercentage && <div className="gauge-max">of {max}</div>}
         </div>
       </div>
     </div>
@@ -86,18 +125,75 @@ export default function ScoreGauges({
   isLoading,
   primaryKeyword,
   content,
-  handleMetricLoading
+  originalContent,
+  analysisRequest,
+  handleMetricLoading,
+  onEditorSave
 }: ScoreGaugesProps) {
-  // Same guard as old component
-  if (!analysisResult && !isLoading) {
-    return null;
-  }
+  if (!analysisResult && !isLoading) return null;
+
+  const [isPolling, setIsPolling] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const [recommendationsReady, setRecommendationsReady] = useState(false);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  /* ================= START POLLING WHEN ANALYSIS RESULT COMES ================= */
+  const { data, loading, error } = useRecommendations(analysisRequest);
+  useEffect(() => {
+    if (!analysisResult || !primaryKeyword) return;
+
+    let cancelled = false;
+
+    const request: AnalysisRequest = {
+      Article: { Raw: content ?? "", Format: "text" },
+      PrimaryKeyword: primaryKeyword,
+      SecondaryKeywords: [],
+      MetaTitle: "",
+      MetaDescription: "",
+      Url: "",
+      Context: { Locale: "", CitationRules: "" },
+    };
+
+    const poll = async () => {
+      setIsPolling(true);
+      setAttempts(0);
+      setRecommendationsReady(false);
+
+      for (let i = 1; i <= MAX_ATTEMPTS; i++) {
+        if (cancelled) return;
+
+        try {
+          const res = await GetRecommendations(request);
+
+          if (res?.status?.toLowerCase() === "completed") {
+            setRecommendationsReady(true);
+            setIsPolling(false);
+            return;
+          }
+        } catch {
+          setIsPolling(false);
+          return;
+        }
+
+        setAttempts(i);
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+      }
+
+      setIsPolling(false);
+    };
+
+    poll();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [analysisResult, primaryKeyword, content]);
 
   const getMetrics = (): MetricItem[] => {
     if (!analysisResult) return [];
 
     const userVisible = analysisResult.finalScores.userVisible;
     const level2 = analysisResult.level2Scores || {};
+    const { data: recData, loading: recLoading } = useRecommendations(analysisRequest);
 
     return [
       {
@@ -105,100 +201,121 @@ export default function ScoreGauges({
         value: userVisible.seoScore ?? 0,
         max: 100,
         color: "#4f46e5",
+        showPercentage: false,
       },
       {
         label: "AI Indexing",
         value: userVisible.aiIndexingScore ?? 0,
         max: 100,
         color: "#10b981",
+        showPercentage: false,
       },
       {
-        label: "Plagiarism",
-        value: level2.plagiarismScore ?? 0,
+        label: "Expertise",
+        value: userVisible.expertiseScore ?? 0,
         max: 100,
         color: "#3b82f6",
+        showPercentage: true,
       },
       {
         label: "Authority",
-        value: level2.authorityScore ?? 0,
+        value: userVisible.authorityScore ?? 0,
         max: 100,
         color: "#8b5cf6",
+        showPercentage: false,
       },
       {
         label: "Readability",
         value: userVisible.readabilityScore ?? 0,
         max: 100,
         color: "#f97316",
+        showPercentage: false,
       },
     ];
   };
 
   const metrics = getMetrics();
-
+  const handleSaveFromEditor = (updatedHtml: string) => {
+    if (onEditorSave) {
+      onEditorSave({ 
+        updatedContent: updatedHtml, 
+        keyword: primaryKeyword ?? "" 
+      });
+    }
+  };
   return (
     <div className="metrics-display-section bg-white py-8 sm:py-12 lg:py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Loading state */}
-        {isLoading && (
-          <div className="text-center mb-8">
-            <p className="text-gray-600 animate-pulse">
-              Analyzing your content...
-            </p>
-          </div>
-        )}
-{analysisResult && (
-  <div className="score-buttons flex justify-end mb-6 gap-x-4" >
-<button
-    className="px-4 py-2 rounded-md bg-secondary text-white font-medium hover:opacity-90"
-  onClick={() =>
-    handleMetricLoading()
+        {analysisResult && (
+          <div className="score-buttons flex justify-end mb-6 gap-x-4">
+            <button
+              className="px-4 py-2 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
+              onClick={handleMetricLoading}
+            >
+              Analyze More Content
+            </button>
+
+            <button
+  className={`px-4 py-2 rounded-md font-medium transition ${
+    recommendationsReady
+      ? "bg-emerald-600 text-white hover:bg-emerald-700"
+      : "bg-gray-400 text-white cursor-not-allowed"
+  }`}
+  disabled={!recommendationsReady}
+  title={
+    !recommendationsReady
+      ? "Fetching recommendations, please wait 2–3 minutes"
+      : ""
   }
->
-  Analyze More Content
-</button>
-    <button
-    className="px-4 py-2 rounded-md bg-secondary text-white font-medium hover:opacity-90"
   onClick={() =>
     exportSeoReport(
       analysisResult,
       primaryKeyword,
+      originalContent,
       content
     )
   }
 >
   Export Report (.docx)
 </button>
-  </div>
-)}
-        {/* Responsive Grid */}
-        <div className="score-container">
-  {/* Top big gauges */}
-  <div className="score-top">
-    {metrics.slice(0, 2).map((metric, index) => (
-      <ScoreGauge
-        key={index}
-        label={metric.label}
-        value={metric.value}
-        max={metric.max}
-        color={metric.color}
-      />
-    ))}
-  </div>
 
-  {/* Bottom small gauges */}
-  <div className="score-bottom">
-    {metrics.slice(2).map((metric, index) => (
-      <ScoreGauge
-        key={index}
-        label={metric.label}
-        value={metric.value}
-        max={metric.max}
-        color={metric.color}
-      />
-    ))}
-  </div>
-</div>
+                  <button
+                      onClick={() => setIsEditorOpen(true)}
+                      disabled={ !recommendationsReady}
+                      className={`px-4 py-2 rounded-md font-medium transition ${
+    recommendationsReady
+      ? "bg-emerald-600 text-white hover:bg-emerald-700"
+      : "bg-gray-400 text-white cursor-not-allowed"
+  }`}
+                    >
+                      ✏️Recommendations
+                    </button>
 
+          </div>
+        )}
+      {isEditorOpen && data?.recommendations && (
+        <DocumentEditor
+          isOpen={isEditorOpen}
+          onSave={handleSaveFromEditor}
+          onClose={() => setIsEditorOpen(false)}
+          content={content} // pass rich HTML content (from ContentUpload) so editor shows formatted article
+          recommendations={data.recommendations}  // pass full recommendation sets
+        />
+      )}
+
+        {!isEditorOpen && <div className="score-container" >
+          <div className="score-top">
+            {metrics.slice(0, 2).map((metric, index) => (
+              <ScoreGauge key={index} {...metric} />
+            ))}
+          </div>
+
+          <div className="score-bottom">
+            {metrics.slice(2).map((metric, index) => (
+              <ScoreGauge key={index} {...metric} />
+            ))}
+          </div>
+        </div>}
       </div>
     </div>
   );

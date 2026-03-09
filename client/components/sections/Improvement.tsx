@@ -1,10 +1,12 @@
 import type { AnalysisResponse } from "@/services/seoAnalysis";
+import { useState } from "react";
 
 interface ImprovementProps {
   analysisResult?: AnalysisResponse | null;
 }
 
 export function Improvement({ analysisResult }: ImprovementProps) {
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
   const metrics = [
     { label: "Better rankings", color: "bg-orange-100 text-orange-600" },
     { label: "AI indexing", color: "bg-blue-100 text-blue-600" },

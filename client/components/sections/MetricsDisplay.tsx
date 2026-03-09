@@ -12,6 +12,7 @@ interface MetricItem {
   max: number;
   color: string;
   backgroundAsset: string;
+  showPercentage:boolean;
 }
 
 export function MetricsDisplay({ analysisResult, isLoading }: MetricsDisplayProps) {
@@ -35,6 +36,7 @@ export function MetricsDisplay({ analysisResult, isLoading }: MetricsDisplayProp
         max: 100,
         color: "#5b21b6",
         backgroundAsset: ASSETS.backgrounds.base,
+        showPercentage:false
       },
       {
         label: "AI Indexing",
@@ -42,20 +44,23 @@ export function MetricsDisplay({ analysisResult, isLoading }: MetricsDisplayProp
         max: 100,
         color: "#059669",
         backgroundAsset: ASSETS.backgrounds.base,
+        showPercentage:false
       },
       {
-        label: "Plagiarism",
-        value: level2.plagiarismScore || 0,
+        label: "Expertise",
+        value: userVisible.expertiseScore || 0,
         max: 100,
         color: "#2563eb",
         backgroundAsset: ASSETS.backgrounds.base2,
+        showPercentage:true
       },
       {
         label: "Authority",
-        value: level2.authorityScore || 0,
+        value: userVisible.authorityScore || 0,
         max: 100,
         color: "#9333ea",
         backgroundAsset: ASSETS.backgrounds.roundedRectangleAutoSh2,
+        showPercentage:false
       },
       {
         label: "Readability",
@@ -63,6 +68,7 @@ export function MetricsDisplay({ analysisResult, isLoading }: MetricsDisplayProp
         max: 100,
         color: "#f97316",
         backgroundAsset: ASSETS.backgrounds.base2,
+        showPercentage:false
       },
     ];
   };
@@ -167,7 +173,7 @@ function CircularMetric({ metric }: CircularMetricProps) {
       </div>
 
       {/* "of 100" label */}
-      <p className="text-xs sm:text-sm text-gray-500 text-center">of 100</p>
+      {!metric.showPercentage && <p className="text-xs sm:text-sm text-gray-500 text-center">of 100</p>}
     </div>
   );
 }
