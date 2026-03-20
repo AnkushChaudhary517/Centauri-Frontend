@@ -26,7 +26,7 @@ export default function Index() {
   const scoreRef = useRef<HTMLDivElement | null>(null);
   const [article, setArticle] = useState({ content: "", keyword: "" })
 
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, user } = useAuth();
   const uploadRef = useRef<HTMLDivElement | null>(null);
 const authTopRef = useRef<HTMLDivElement | null>(null);
 const handleSave = (newData: { updatedContent: string; keyword: string }) => {
@@ -101,7 +101,7 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-white">
-      <Hero onLogout={handleLogout} isSignedIn={isAuthenticated} />
+      <Hero onLogout={handleLogout} isSignedIn={isAuthenticated} user={user} />
 
 <div ref={authTopRef}>
  {/* 🔐 AUTH SECTION */}

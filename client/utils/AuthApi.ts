@@ -6,6 +6,18 @@ export interface AuthTokens {
   refreshToken?: string;
 }
 
+export interface AuthUser {
+  userId?: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  profileImage?: string;
+}
+
+export interface AuthSession extends AuthTokens {
+  user?: AuthUser | null;
+}
+
 export interface UpdateProfilePayload {
   email: string;
   firstName: string;
@@ -16,29 +28,91 @@ export interface UpdateProfilePayload {
 }
 
 type AuthApiResponse =
-  | AuthTokens
+  | AuthSession
   | {
       success?: boolean;
       message?: string;
       data?: {
+        userId?: string;
+        email?: string;
+        firstName?: string;
+        lastName?: string;
+        profileImage?: string;
         token?: string;
         refreshToken?: string;
         access_token?: string;
         refresh_token?: string;
       };
+      userId?: string;
+      email?: string;
+      firstName?: string;
+      lastName?: string;
+      profileImage?: string;
       token?: string;
       refreshToken?: string;
       access_token?: string;
       refresh_token?: string;
     };
 
-function normalizeAuthTokens(response: AuthApiResponse): AuthTokens {
+function decodeJwtPayload(token: string): Record<string, any> | null {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='));
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+}
+
+export function isTokenValid(token?: string | null): boolean {
+  if (!token) return false;
+  const payload = decodeJwtPayload(token);
+  if (!payload?.exp) return true;
+  const nowInSeconds = Math.floor(Date.now() / 1000);
+  return payload.exp > nowInSeconds;
+}
+
+export function getUserFromToken(token?: string | null): AuthUser | null {
+  if (!token) return null;
+  const payload = decodeJwtPayload(token);
+  if (!payload) return null;
+
+  return {
+    userId:
+      payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] ||
+      payload.sub,
+    email:
+      payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"] ||
+      payload.email,
+    firstName:
+      payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname"] ||
+      payload.given_name,
+    lastName:
+      payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname"] ||
+      payload.family_name,
+    profileImage: "",
+  };
+}
+
+function normalizeAuthSession(response: AuthApiResponse): AuthSession {
   const responseWithAliases = response as {
+    userId?: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    profileImage?: string;
     token?: string;
     refreshToken?: string;
     access_token?: string;
     refresh_token?: string;
     data?: {
+      userId?: string;
+      email?: string;
+      firstName?: string;
+      lastName?: string;
+      profileImage?: string;
       token?: string;
       refreshToken?: string;
       access_token?: string;
@@ -62,7 +136,18 @@ function normalizeAuthTokens(response: AuthApiResponse): AuthTokens {
     throw new Error(responseWithAliases.message || 'Authentication token missing from response');
   }
 
-  return { token, refreshToken };
+  const explicitUser: AuthUser = {
+    userId: responseWithAliases.userId ?? responseWithAliases.data?.userId,
+    email: responseWithAliases.email ?? responseWithAliases.data?.email,
+    firstName: responseWithAliases.firstName ?? responseWithAliases.data?.firstName,
+    lastName: responseWithAliases.lastName ?? responseWithAliases.data?.lastName,
+    profileImage: responseWithAliases.profileImage ?? responseWithAliases.data?.profileImage ?? "",
+  };
+
+  const hasExplicitUser = Object.values(explicitUser).some(Boolean);
+  const user = hasExplicitUser ? explicitUser : getUserFromToken(token);
+
+  return { token, refreshToken, user };
 }
 
 async function postJson<T>(endpoint: string, body: unknown): Promise<T> {
@@ -100,12 +185,40 @@ export function setTokens(token: string, refreshToken?: string): void {
   }
 }
 
-export const getToken = () => localStorage.getItem('token') || localStorage.getItem('authToken');
+export function setStoredUser(user?: AuthUser | null): void {
+  if (!user) {
+    localStorage.removeItem('authUser');
+    return;
+  }
+  localStorage.setItem('authUser', JSON.stringify(user));
+}
+
+export function getStoredUser(): AuthUser | null {
+  const raw = localStorage.getItem('authUser');
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as AuthUser;
+  } catch {
+    localStorage.removeItem('authUser');
+    return null;
+  }
+}
+
+export const getToken = () => {
+  const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+  if (token && !isTokenValid(token)) {
+    clearTokens();
+    setStoredUser(null);
+    return null;
+  }
+  return token;
+};
 export const getRefreshToken = () => localStorage.getItem('refreshToken');
 export const clearTokens = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('authToken');
   localStorage.removeItem('refreshToken');
+  localStorage.removeItem('authUser');
 };
 
 export async function apiCall<T>(
@@ -156,27 +269,30 @@ export const authAPI = {
       method: 'POST',
       body: { email, password },
     });
-    const tokens = normalizeAuthTokens(response);
-    setTokens(tokens.token, tokens.refreshToken);
-    return tokens;
+    const session = normalizeAuthSession(response);
+    setTokens(session.token, session.refreshToken);
+    setStoredUser(session.user);
+    return session;
   },
   register: async (email: string, password: string) => {
     const response = await apiCall<AuthApiResponse>('/auth/register', {
       method: 'POST',
       body: { email, password },
     });
-    const tokens = normalizeAuthTokens(response);
-    setTokens(tokens.token, tokens.refreshToken);
-    return tokens;
+    const session = normalizeAuthSession(response);
+    setTokens(session.token, session.refreshToken);
+    setStoredUser(session.user);
+    return session;
   },
   socialLogin: async (provider: 'google' | 'facebook' | 'apple', idToken: string, accessToken?: string) => {
     const response = await apiCall<AuthApiResponse>(`/auth/social/${provider}`, {
       method: 'POST',
       body: { idToken, accessToken },
     });
-    const tokens = normalizeAuthTokens(response);
-    setTokens(tokens.token, tokens.refreshToken);
-    return tokens;
+    const session = normalizeAuthSession(response);
+    setTokens(session.token, session.refreshToken);
+    setStoredUser(session.user);
+    return session;
   },
   initiateGoogleSignIn: () => {
     window.location.href = `${API_BASE_URL}/auth/google`;
@@ -189,18 +305,20 @@ export const authAPI = {
       method: 'POST',
       body: { idToken },
     });
-    const tokens = normalizeAuthTokens(response);
-    setTokens(tokens.token, tokens.refreshToken);
-    return tokens;
+    const session = normalizeAuthSession(response);
+    setTokens(session.token, session.refreshToken);
+    setStoredUser(session.user);
+    return session;
   },
   exchangeFacebookToken: async (accessToken: string) => {
     const response = await apiCall<AuthApiResponse>('/auth/facebook/exchange', {
       method: 'POST',
       body: { accessToken },
     });
-    const tokens = normalizeAuthTokens(response);
-    setTokens(tokens.token, tokens.refreshToken);
-    return tokens;
+    const session = normalizeAuthSession(response);
+    setTokens(session.token, session.refreshToken);
+    setStoredUser(session.user);
+    return session;
   },
   sendVerificationEmail: async (email: string) => {
     return apiCall('/auth/send-verification', {
@@ -250,9 +368,10 @@ export const authAPI = {
       method: 'POST',
       body: { refreshToken },
     });
-    const tokens = normalizeAuthTokens(response);
-    setTokens(tokens.token, tokens.refreshToken);
-    return tokens;
+    const session = normalizeAuthSession(response);
+    setTokens(session.token, session.refreshToken);
+    setStoredUser(session.user);
+    return session;
   },
   logout: async () => {
     await apiCall('/auth/logout', { method: 'POST' });
@@ -263,6 +382,6 @@ export const authAPI = {
 export async function login(
   email: string,
   password: string
-) : Promise<AuthTokens> {
+) : Promise<AuthSession> {
   return authAPI.login(email, password);
 }
