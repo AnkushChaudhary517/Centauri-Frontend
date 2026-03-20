@@ -103,29 +103,30 @@ export function RecommendationOptions({
             </div>
           </div>
         </div>
-        {/* Action Button */}
+        {/* Action Button (commented per request) */}
+        {/**
         <button
           onClick={() => onApplySuggestion(recommendation.examples.good)}
           className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-105"
         >
           Apply This Suggestion
         </button>
-        {/* Improves */}
+        */}
+
+        {/* Improves - show single friendly summary sentence instead of tag list */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">
-            This will improve:
-          </h3>
-          <div className="grid grid-cols-1 gap-2">
-            {recommendation.improves.map((tag, index) => (
-              <div
-                key={index}
-                className="flex items-center gap-2 p-3 bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-lg"
-              >
-                <span className="text-lg">⭐</span>
-                <span className="text-sm font-medium text-gray-900">{tag}</span>
-              </div>
-            ))}
-          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">This will improve</h3>
+          <p className="text-sm text-gray-700">
+            {(() => {
+              const parts = recommendation.improves || [];
+              if (parts.length === 0) return "Overall content quality.";
+              if (parts.length === 1) return `${parts[0]}.`;
+              if (parts.length === 2) return `${parts[0]} and ${parts[1]}.`;
+              const firsts = parts.slice(0, -1).join(", ");
+              const last = parts[parts.length - 1];
+              return `${firsts}, and ${last}.`;
+            })()}
+          </p>
         </div>
 
         

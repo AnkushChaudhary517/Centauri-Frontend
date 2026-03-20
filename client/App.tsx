@@ -56,38 +56,9 @@ function OAuthCallback() {
 
     if (token) {
       console.log("OAuth callback received token, provider:", provider);
-      
-      // Exchange token for JWT tokens based on provider
-      const exchangePromise = authAPI.exchangeGoogleToken(token);
-
-      exchangePromise.then((response) => {
-        console.log("Token exchange response:", response);
-        
-        if (response.success && response.data) {
-          const userData = {
-            userId: response.data.userId || response.data.user_id,
-            email: response.data.email || "",
-            firstName: response.data.firstName || response.data.first_name || "",
-            lastName: response.data.lastName || response.data.last_name || "",
-            profileImage: response.data.profileImage || response.data.profile_image || "",
-          };
-          localStorage.setItem("isUserAuthenticated", "true");
-          const jwtToken = response.data.token || response.data.access_token;
-          const refreshToken = response.data.refreshToken || response.data.refresh_token;
-          
-          if (jwtToken && refreshToken) {
-            console.log("Setting tokens and user data");
-            handleOAuthCallback(jwtToken, refreshToken, userData);
-            
-            navigate("/");
-          } else {
-            console.error("Missing tokens in response:", response.data);
-            navigate(`/?error=oauth_failed&message=${encodeURIComponent("Missing tokens in response")}`);
-          }
-        } else {
-          console.error("Token exchange failed:", response.error || response);
-          navigate(`/?error=oauth_failed&message=${encodeURIComponent(response.error?.message || response.message || "Token exchange failed")}`);
-        }
+      authAPI.exchangeGoogleToken(token).then((response) => {
+        handleOAuthCallback(response.token, response.refreshToken);
+        navigate("/");
       }).catch((err) => {
         console.error("Token exchange error:", err);
         navigate(`/?error=oauth_failed&message=${encodeURIComponent(err instanceof Error ? err.message : "Unknown error")}`);

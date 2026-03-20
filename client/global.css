@@ -123,3 +123,25 @@
     white-space: pre;
   }
 }
+
+@layer components {
+  .rich-prose h1 {
+    @apply text-3xl font-extrabold mt-4 mb-2;
+  }
+
+  .rich-prose h2 {
+    @apply text-2xl font-bold mt-4 mb-2;
+  }
+
+  .rich-prose h3 {
+    @apply text-xl font-semibold mt-3 mb-2;
+  }
+
+  .rich-prose h4 {
+    @apply text-lg font-medium mt-2 mb-1;
+  }
+
+  .rich-prose img {
+    @apply max-w-full h-auto;
+  }
+}

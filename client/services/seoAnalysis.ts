@@ -34,6 +34,8 @@ export interface RecommendationItem{
     requestId: string;
     status: string;
     seoScore: number;
+    isCompleted: boolean;
+    error: string | null;
     finalScores: {
       userVisible: {
         expertiseScore: number | null;
@@ -66,6 +68,9 @@ export interface RecommendationItem{
     bad:string;
   }
   
+// API Configuration
+import { getSeoAnalyzeUrl, getRecommendationsUrl } from '@/utils/ApiConfig';
+import { getToken } from '@/utils/AuthApi';
   // Parse file content to extract metadata
   export function parseFileContent(content: string): Partial<AnalysisRequest> {
     const parsed: Partial<AnalysisRequest> = {};
@@ -115,13 +120,20 @@ export interface RecommendationItem{
   
   export async function analyzeSEO(request: AnalysisRequest): Promise<AnalysisResponse> {
     try {
-      //let url = "https://localhost:7206/api/Seo/analyze";
-      let url ="http://ec2-15-206-164-71.ap-south-1.compute.amazonaws.com:3000/api/Seo/analyze"
+      const url = getSeoAnalyzeUrl();
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+      };
+      
+      // Include Bearer token if available
+      const token = getToken();
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      
       const response = await fetch(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers,
         body: JSON.stringify(request),
       });
   
@@ -133,6 +145,54 @@ export interface RecommendationItem{
       return data as AnalysisResponse;
     } catch (error) {
       console.error("SEO analysis error:", error);
+      throw error;
+    }
+  }
+
+  export async function analyzeSEOWithPolling(request: AnalysisRequest): Promise<AnalysisResponse> {
+    try {
+      const url = getSeoAnalyzeUrl();
+
+      // Poll for completion
+      const maxAttempts = 30; // 5 minutes / 10 seconds = 30 attempts
+      let attempts = 0;
+
+      while (attempts < maxAttempts) {
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json"
+        };
+        
+        // Include Bearer token if available
+        const token = getToken();
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        
+        // Call the same analyze endpoint
+        const response = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(request),
+        });
+
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        if (data.isCompleted) {
+          return data as AnalysisResponse;
+        }
+
+        // Wait 10 seconds before next attempt
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        attempts++;
+      }
+
+      throw new Error("Analysis timed out after 5 minutes");
+    } catch (error) {
+      console.error("SEO analysis with polling error:", error);
       throw error;
     }
   }

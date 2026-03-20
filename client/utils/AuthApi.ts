@@ -1,225 +1,268 @@
-//const API_BASE_URL = "http://ec2-13-126-103-12.ap-south-1.compute.amazonaws.com:3000/api/v1";
-//"
-//const API_BASE_URL = 'https://localhost:7206/api/v1';
-const API_BASE_URL = 'http://ec2-15-206-164-71.ap-south-1.compute.amazonaws.com:3000/api/v1';
+import { getApiBaseUrl } from './ApiConfig';
+const API_BASE_URL = getApiBaseUrl();
 
-export const getToken = () => localStorage.getItem('token');
-export const getRefreshToken = () => localStorage.getItem('refreshToken');
-export const setTokens = (token: string, refreshToken: string) => {
+export interface AuthTokens {
+  token: string;
+  refreshToken?: string;
+}
+
+export interface UpdateProfilePayload {
+  email: string;
+  firstName: string;
+  lastName: string;
+  company?: string;
+  contactNumber?: string;
+  password: string;
+}
+
+type AuthApiResponse =
+  | AuthTokens
+  | {
+      success?: boolean;
+      message?: string;
+      data?: {
+        token?: string;
+        refreshToken?: string;
+        access_token?: string;
+        refresh_token?: string;
+      };
+      token?: string;
+      refreshToken?: string;
+      access_token?: string;
+      refresh_token?: string;
+    };
+
+function normalizeAuthTokens(response: AuthApiResponse): AuthTokens {
+  const responseWithAliases = response as {
+    token?: string;
+    refreshToken?: string;
+    access_token?: string;
+    refresh_token?: string;
+    data?: {
+      token?: string;
+      refreshToken?: string;
+      access_token?: string;
+      refresh_token?: string;
+    };
+    message?: string;
+  };
+
+  const token =
+    responseWithAliases.token ??
+    responseWithAliases.access_token ??
+    responseWithAliases.data?.token ??
+    responseWithAliases.data?.access_token;
+  const refreshToken =
+    responseWithAliases.refreshToken ??
+    responseWithAliases.refresh_token ??
+    responseWithAliases.data?.refreshToken ??
+    responseWithAliases.data?.refresh_token;
+
+  if (!token) {
+    throw new Error(responseWithAliases.message || 'Authentication token missing from response');
+  }
+
+  return { token, refreshToken };
+}
+
+async function postJson<T>(endpoint: string, body: unknown): Promise<T> {
+  const finalHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  const token = getToken();
+  if (token) {
+    finalHeaders['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: 'POST',
+    headers: finalHeaders,
+    body: JSON.stringify(body),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const errorMessage =
+      data?.message || data?.error?.message || data?.error || response.statusText || 'API request failed';
+    throw new Error(errorMessage);
+  }
+
+  return data as T;
+}
+
+// Helper functions for localStorage
+export function setTokens(token: string, refreshToken?: string): void {
   localStorage.setItem('token', token);
-  localStorage.setItem('refreshToken', refreshToken);
-};
+  if (refreshToken) {
+    localStorage.setItem('refreshToken', refreshToken);
+  }
+}
+
+export const getToken = () => localStorage.getItem('token') || localStorage.getItem('authToken');
+export const getRefreshToken = () => localStorage.getItem('refreshToken');
 export const clearTokens = () => {
   localStorage.removeItem('token');
+  localStorage.removeItem('authToken');
   localStorage.removeItem('refreshToken');
 };
-async function apiCall<T>(
-    endpoint: string,
-    options: {
-      method?: string;
-      body?: any;
-      headers?: Record<string, string>;
-      requiresAuth?: boolean;
-    } = {}
-  ): Promise<T> {
-    const {
-      method = 'GET',
-      body,
-      headers = {},
-      requiresAuth = false,
-    } = options;
-  
-    const finalHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...headers,
-    };
-  
-    if (requiresAuth) {
-      const token = getToken();
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-      finalHeaders['Authorization'] = `Bearer ${token}`;
-    }
-  
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method,
-      headers: finalHeaders,
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  
-    const data = await response.json();
-  
-    if (!response.ok) {
-      throw new Error(data.error?.message || 'API request failed');
-    }
-  
-    return data;
+
+export async function apiCall<T>(
+  endpoint: string,
+  options: {
+    method?: string;
+    body?: any;
+    headers?: Record<string, string>;
+    requiresAuth?: boolean;
+  } = {}
+): Promise<T> {
+  const {
+    method = 'GET',
+    body,
+    headers = {},
+    requiresAuth = false,
+  } = options;
+
+  const finalHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...headers,
+  };
+
+  // Always include Bearer token if available (after login)
+  const token = getToken();
+  if (token) {
+    finalHeaders['Authorization'] = `Bearer ${token}`;
   }
-  
+
+  const url = `${API_BASE_URL}${endpoint}`;
+
+  const response = await fetch(url, {
+    method,
+    headers: finalHeaders,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!response.ok) {
+    throw new Error(`API call failed: ${response.statusText}`);
+  }
+
+  return response.json();
+}
 
 export const authAPI = {
-    // Sign In
-    login: async (email: string, password: string) => {
-      const response:any = await apiCall('/auth/login', {
-        method: 'POST',
-        body: { email, password },
-      });
-      if (response.success) {
-        setTokens(response.data.token, response.data.refreshToken);
+  login: async (email: string, password: string) => {
+    const response = await apiCall<AuthApiResponse>('/auth/login', {
+      method: 'POST',
+      body: { email, password },
+    });
+    const tokens = normalizeAuthTokens(response);
+    setTokens(tokens.token, tokens.refreshToken);
+    return tokens;
+  },
+  register: async (email: string, password: string) => {
+    const response = await apiCall<AuthApiResponse>('/auth/register', {
+      method: 'POST',
+      body: { email, password },
+    });
+    const tokens = normalizeAuthTokens(response);
+    setTokens(tokens.token, tokens.refreshToken);
+    return tokens;
+  },
+  socialLogin: async (provider: 'google' | 'facebook' | 'apple', idToken: string, accessToken?: string) => {
+    const response = await apiCall<AuthApiResponse>(`/auth/social/${provider}`, {
+      method: 'POST',
+      body: { idToken, accessToken },
+    });
+    const tokens = normalizeAuthTokens(response);
+    setTokens(tokens.token, tokens.refreshToken);
+    return tokens;
+  },
+  initiateGoogleSignIn: () => {
+    window.location.href = `${API_BASE_URL}/auth/google`;
+  },
+  initiateFacebookSignIn: () => {
+    window.location.href = `${API_BASE_URL}/auth/facebook`;
+  },
+  exchangeGoogleToken: async (idToken: string) => {
+    const response = await apiCall<AuthApiResponse>('/auth/google/exchange', {
+      method: 'POST',
+      body: { idToken },
+    });
+    const tokens = normalizeAuthTokens(response);
+    setTokens(tokens.token, tokens.refreshToken);
+    return tokens;
+  },
+  exchangeFacebookToken: async (accessToken: string) => {
+    const response = await apiCall<AuthApiResponse>('/auth/facebook/exchange', {
+      method: 'POST',
+      body: { accessToken },
+    });
+    const tokens = normalizeAuthTokens(response);
+    setTokens(tokens.token, tokens.refreshToken);
+    return tokens;
+  },
+  sendVerificationEmail: async (email: string) => {
+    return apiCall('/auth/send-verification', {
+      method: 'POST',
+      body:  email ,
+    });
+  },
+  verifyEmail: async (email: string, verificationCode: string) => {
+    return apiCall('/auth/verify-email', {
+      method: 'POST',
+      body: { 
+        email:email, code:verificationCode },
+    });
+  },
+  updateProfile: async (payload: UpdateProfilePayload) => {
+    try {
+      return await postJson('/auth/updateprofile', payload);
+    } catch (error) {
+      if (error instanceof Error && /404|not found/i.test(error.message)) {
+        return postJson('/auth/update-profile', payload);
       }
-      return response;
-    },
-  
-    // Sign Up
-    register: async (name: string, email: string, password: string) => {
-      const response = await apiCall('/auth/register', {
-        method: 'POST',
-        body: { name, email, password, acceptTerms: true },
-      });
-      return response;
-    },
-  
-    // Social Login
-    socialLogin: async (provider: 'google' | 'facebook' | 'apple', idToken: string, accessToken?: string) => {
-      const response:any = await apiCall('/auth/social-login', {
-        method: 'POST',
-        body: { provider, idToken, accessToken: accessToken || '' },
-      });
-      if (response.success) {
-        setTokens(response.data.token, response.data.refreshToken);
-      }
-      return response;
-    },
-  
-    // Initiate Google Sign-In - redirects to backend OAuth endpoint
-    initiateGoogleSignIn: () => {
-      // Redirect to backend Google OAuth endpoint
-      // Backend will handle OAuth flow and redirect back to callback URL
-      // Use hash route for HashRouter compatibility
-      const callbackUrl = `${window.location.origin}/#/auth/callback`;
-      window.location.href = `${API_BASE_URL}/auth/google?redirect_uri=${encodeURIComponent(callbackUrl)}`;
-    },
-  
-    // Initiate Facebook Sign-In - redirects to backend OAuth endpoint
-    initiateFacebookSignIn: () => {
-      // Redirect to backend Facebook OAuth endpoint
-      // Backend will handle OAuth flow and redirect back to callback URL
-      // Use hash route for HashRouter compatibility
-      const callbackUrl = `${window.location.origin}/#/auth/callback`;
-      window.location.href = `${API_BASE_URL}/auth/facebook?redirect_uri=${encodeURIComponent(callbackUrl)}`;
-    },
-  
-    // Exchange Google ID token for JWT tokens
-    exchangeGoogleToken: async (idToken: string) => {
-      const response: any = await apiCall('/auth/google/exchange', {
-        method: 'POST',
-        body: { idToken },
-      });
-      if (response.success) {
-        setTokens(response.data.token, response.data.refreshToken);
-      }
-      return response;
-    },
-  
-    // Exchange Facebook access token for JWT tokens
-    exchangeFacebookToken: async (accessToken: string) => {
-      try {
-        const response: any = await apiCall('/auth/facebook/exchange', {
-          method: 'POST',
-          body: { accessToken },
-        });
-        
-        console.log("Facebook exchange response:", response);
-        
-        if (response.success && response.data) {
-          const jwtToken = response.data.token || response.data.access_token;
-          const refreshToken = response.data.refreshToken || response.data.refresh_token;
-          
-          if (jwtToken && refreshToken) {
-            setTokens(jwtToken, refreshToken);
-            console.log("Facebook tokens set successfully");
-          } else {
-            console.error("Missing tokens in Facebook exchange response:", response.data);
-          }
-        }
-        
-        return response;
-      } catch (error) {
-        console.error("Facebook exchange error:", error);
-        throw error;
-      }
-    },
-  
-    // Send Verification Email
-    sendVerificationEmail: async (email: string) => {
-      return await apiCall('/auth/send-verification-email', {
-        method: 'POST',
-        body: { email },
-      });
-    },
-  
-    // Verify Email
-    verifyEmail: async (email: string, verificationCode: string) => {
-      return await apiCall('/auth/verify-email', {
-        method: 'POST',
-        body: { email, verificationCode },
-      });
-    },
-  
-    // Change Password
-    changePassword: async (currentPassword: string, newPassword: string) => {
-      return await apiCall('/auth/change-password', {
-        method: 'POST',
-        body: { currentPassword, newPassword },
-        requiresAuth: true,
-      });
-    },
-  
-    // Forgot Password
-    forgotPassword: async (email: string) => {
-      return await apiCall('/auth/forgot-password', {
-        method: 'POST',
-        body: { email },
-      });
-    },
-  
-    // Reset Password
-    resetPassword: async (email: string, resetToken: string, newPassword: string) => {
-      return await apiCall('/auth/reset-password', {
-        method: 'POST',
-        body: { email, resetToken, newPassword },
-      });
-    },
-  
-    // Refresh Token
-    refreshToken: async () => {
-      const refreshToken = getRefreshToken();
-      if (!refreshToken) {
-        throw new Error('No refresh token available');
-      }
-      const response:any = await apiCall('/auth/refresh-token', {
-        method: 'POST',
-        body: { refreshToken },
-      });
-      if (response.success) {
-        setTokens(response.data.token, response.data.refreshToken);
-      }
-      return response;
-    },
-  
-    // Logout
-    logout: async () => {
-      const refreshToken = getRefreshToken();
-      const response:any = await apiCall('/auth/logout', {
-        method: 'POST',
-        body: { refreshToken },
-        requiresAuth: true,
-      });
-      if (response.success) {
-        clearTokens();
-      }
-      return response;
-    },
-  };
-  
+      throw error;
+    }
+  },
+  changePassword: async (currentPassword: string, newPassword: string) => {
+    return apiCall('/auth/change-password', {
+      method: 'POST',
+      body: { currentPassword:currentPassword, newPassword:newPassword },
+    });
+  },
+  forgotPassword: async (email: string) => {
+    return apiCall('/auth/forgot-password', {
+      method: 'POST',
+      body: email ,
+    });
+  },
+  resetPassword: async (email: string, resetToken: string, newPassword: string) => {
+    return apiCall('/auth/reset-password', {
+      method: 'POST',
+      body: { email:email, resetToken:resetToken, newPassword:newPassword },
+    });
+  },
+  refreshToken: async () => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) throw new Error('No refresh token');
+    const response = await apiCall<AuthApiResponse>('/auth/refresh', {
+      method: 'POST',
+      body: { refreshToken },
+    });
+    const tokens = normalizeAuthTokens(response);
+    setTokens(tokens.token, tokens.refreshToken);
+    return tokens;
+  },
+  logout: async () => {
+    await apiCall('/auth/logout', { method: 'POST' });
+    clearTokens();
+  },
+};
+
+export async function login(
+  email: string,
+  password: string
+) : Promise<AuthTokens> {
+  return authAPI.login(email, password);
+}

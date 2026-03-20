@@ -5,7 +5,7 @@ import { useToast } from "@/components/ui/use-toast";
 import mammoth from "mammoth";
 import {
   AnalysisRequest,
-  analyzeSEO,
+  analyzeSEOWithPolling,
   buildAnalysisRequest,
   type AnalysisResponse,
 } from "@/services/seoAnalysis";
@@ -32,12 +32,13 @@ export function ContentUpload({
   
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
+  const imagesRef = useRef<Array<{ placeholder: string; blobUrl: string }>>([]);
   const [fileName, setFileName] = useState("");
   const [primaryKeyword, setPrimaryKeyword] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
 
-  const allowedTags = ['h1', 'h2', 'h3', 'h4', 'li', 'td', 'th', 'p', 'a', 'ul', 'ol', 'strong', 'em', 'br'];
+  const allowedTags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'th', 'p', 'a', 'ul', 'ol', 'strong', 'em', 'br', 'img'];
 
   // Update internal state if props change (important for the "Done Editing" flow)
   useEffect(() => {
@@ -50,8 +51,9 @@ export function ContentUpload({
   function sanitizeHtml(html: string) {
     return DOMPurify.sanitize(html, {
       ALLOWED_TAGS: allowedTags,
-      ALLOWED_ATTR: ['href'], 
-      KEEP_CONTENT: true
+      ALLOWED_ATTR: ['href','src','alt','width','height'], 
+      KEEP_CONTENT: true,
+      ALLOWED_URI_REGEXP: /^(data|blob|https?):/i,
     });
   }
 
@@ -72,9 +74,12 @@ export function ContentUpload({
     setFileName(file.name);
 
     try {
-      if (file.name.endsWith(".docx")) {
+        if (file.name.endsWith(".docx")) {
         const arrayBuffer = await file.arrayBuffer();
         var htmlStr = await docxToHtmlString(file);
+        // collect images as base64 then create blob URLs for display
+        imagesRef.current = [];
+        let imgCounter = 0;
         const result = await mammoth.convertToHtml(
           { arrayBuffer },
           {
@@ -99,23 +104,39 @@ export function ContentUpload({
             ],
             includeDefaultStyleMap: true,
             convertImage: mammoth.images.imgElement((image) => {
+              imgCounter += 1;
+              const placeholder = `embedded-image-${imgCounter}`;
               return image.read("base64").then((imageBuffer) => {
-                return { src: `data:${image.contentType};base64,${imageBuffer}` };
+                // create blob URL for display
+                const byteChars = atob(imageBuffer);
+                const byteNumbers = new Array(byteChars.length);
+                for (let i = 0; i < byteChars.length; i++) {
+                  byteNumbers[i] = byteChars.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: image.contentType });
+                const blobUrl = URL.createObjectURL(blob);
+                imagesRef.current.push({ placeholder, blobUrl });
+                return { src: placeholder };
               });
             }),
           }
         );
-        //const sanitized = sanitizeHtml(result.value);
-        //let html = wrapLists(result.value);
         htmlStr = normalizeDocxHtml(htmlStr);
-        setContent(result.value);
+        // replace placeholders with blob URLs for display
+        let displayHtml = result.value;
+        imagesRef.current.forEach((img) => {
+          displayHtml = displayHtml.replace(new RegExp(img.placeholder, 'g'), img.blobUrl);
+        });
+        const sanitized = sanitizeHtml(displayHtml);
+        setContent(sanitized);
         setOriginalContent(htmlToPlainText(htmlStr));
       } 
       else {
         const text = await file.text();
         const wrappedText = `<p>${text.replace(/\n/g, '<br>')}</p>`;
         setOriginalContent(text);
-        setContent(wrappedText);
+        setContent(sanitizeHtml(wrappedText));
       }
 
       toast({
@@ -148,7 +169,7 @@ export function ContentUpload({
 
   /* ---------- Analyze ---------- */
   const handleAnalyze = async () => {
-    localStorage.clear();
+    localStorage.removeItem("RequestId");
     if (!primaryKeyword.trim()) {
       toast({
         title: "Primary keyword required",
@@ -171,12 +192,20 @@ export function ContentUpload({
       setIsAnalyzing(true);
       onAnalysisStart?.();
 
-      // We send 'content' which contains the HTML tags
-      const request = buildAnalysisRequest(content, {
+      // For backend, swap any blob URLs back to placeholder srcs so we don't send encoded images
+      let requestHtml = content;
+      imagesRef.current.forEach((img) => {
+        if (img.blobUrl && requestHtml.includes(img.blobUrl)) {
+          requestHtml = requestHtml.replace(new RegExp(img.blobUrl, 'g'), img.placeholder);
+        }
+      });
+
+      // We send 'requestHtml' which contains the HTML tags (with placeholder img srcs)
+      const request = buildAnalysisRequest(requestHtml, {
         PrimaryKeyword: primaryKeyword,
       });
 
-      const response = await analyzeSEO(request);
+      const response = await analyzeSEOWithPolling(request);
       localStorage.setItem("RequestId", response?.requestId);
       onAnalysisComplete?.(primaryKeyword, content, response, originalContent, request);
 
@@ -186,9 +215,12 @@ export function ContentUpload({
       });
     } catch (error) {
       console.error("Analysis error:", error);
+      const errorMessage = error instanceof Error && error.message.includes("timed out") 
+        ? "Something went wrong. Please try again"
+        : "Failed to analyze content";
       toast({
         title: "Error",
-        description: "Failed to analyze content",
+        description: errorMessage,
         variant: "destructive",
       });
       onAnalysisError?.();
@@ -300,7 +332,7 @@ export function ContentUpload({
               ref={editableRef}
               contentEditable={!isAnalyzing}
               onInput={handleInput}
-              className={`min-h-[250px] max-h-[500px] overflow-y-auto border rounded-md bg-white prose prose-sm max-w-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 
+              className={`min-h-[250px] max-h-[500px] overflow-y-auto border rounded-md bg-white prose rich-prose max-w-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 
                 ${isAnalyzing ? 'opacity-50 cursor-not-allowed' : ''}`}
               style={{ border: '1px solid #e2e8f0' }}
             />

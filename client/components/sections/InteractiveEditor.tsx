@@ -97,8 +97,9 @@ export function InteractiveEditor({
     });
 
     const firstMatch = contentRef.current.querySelector('.highlighted-text') as HTMLElement | null;
-    if (firstMatch && containerRef.current) {
-      const container = containerRef.current;
+    if (firstMatch) {
+      // choose the scrollable element (the editable content itself)
+      const container = contentRef.current as HTMLElement;
       try {
         // Calculate offset relative to container and center the match
         const containerRect = container.getBoundingClientRect();
@@ -162,7 +163,7 @@ export function InteractiveEditor({
             suppressContentEditableWarning
             role="textbox"
             aria-multiline
-            className="min-h-[250px] max-h-[500px] overflow-y-auto border rounded-md bg-white prose prose-sm max-w-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 p-6 text-gray-900 leading-relaxed"
+            className="min-h-[250px] max-h-[500px] overflow-y-auto border rounded-md bg-white prose rich-prose max-w-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 p-6 text-gray-900 leading-relaxed"
             style={{
               border: '1px solid #e2e8f0',
               wordWrap: 'break-word',

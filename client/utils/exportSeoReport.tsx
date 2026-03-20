@@ -17,6 +17,8 @@ import type {
   RecommendationResponse,
 } from "@/services/seoAnalysis";
 import { toast } from "@/components/ui/use-toast";
+import { getRecommendationsUrl } from "./ApiConfig";
+import { getToken } from "./AuthApi";
 
 /* ================= POLLING CONFIG ================= */
 const MAX_ATTEMPTS = 10;
@@ -26,15 +28,20 @@ const POLL_INTERVAL = 10_000; // 10 sec
 export async function GetRecommendations(
   request: AnalysisRequest
 ): Promise<RecommendationResponse> {
-  //const url = "https://localhost:7206/api/Seo/recommendations";
-  let url ="http://ec2-15-206-164-71.ap-south-1.compute.amazonaws.com:3000/api/Seo/recommendations"
+  const url = getRecommendationsUrl();
+  const token = getToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    RequestId: localStorage.getItem("RequestId") ?? "",
+  };
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
 
   const response = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      RequestId: localStorage.getItem("RequestId") ?? "",
-    },
+    headers,
     body: JSON.stringify(request),
   });
 
@@ -269,12 +276,14 @@ export async function exportSeoReport(
           // Analysis Scores
           H2("Analysis Scores"),
           scoreLine("SEO Score", Math.round(analysis.finalScores.userVisible.seoScore)),
-          scoreLine("AI Indexing", Math.round(analysis.finalScores.userVisible.aiIndexingScore), true),
+          scoreLine("AI Indexing", Math.round(analysis.finalScores.userVisible.aiIndexingScore)),
+          scoreLine("Expertise", Math.round(analysis.finalScores.userVisible.expertiseScore), true),
           scoreLine("Authority", Math.round(analysis.finalScores.userVisible.authorityScore)),
-          scoreLine("Expertise", Math.round(analysis.finalScores.userVisible.expertiseScore)),
+          scoreLine("Readability", Math.round(analysis.finalScores.userVisible.readabilityScore)),
 
           // --- CRITICAL FIX: SPREAD OPERATORS (...) ---
           
+          H2("Overall Recommendations"),
           ...(recommendations.recommendations?.overall?.flatMap((rec) => {
 
   

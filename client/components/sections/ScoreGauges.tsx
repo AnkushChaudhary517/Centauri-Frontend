@@ -8,6 +8,8 @@ import type {
 import { useEffect, useState } from "react";
 import { DocumentEditor } from "./DocumentEditor";
 import { useRecommendations } from "@/hooks/fetch-recommendations";
+import { getRecommendationsUrl } from "@/utils/ApiConfig";
+import { getToken } from "@/utils/AuthApi";
 
 /* ================= POLLING CONFIG ================= */
 
@@ -19,21 +21,25 @@ const POLL_INTERVAL = 10_000; // 10 seconds
 async function GetRecommendations(
   request: AnalysisRequest
 ): Promise<RecommendationResponse> {
-  //const url = "https://localhost:7206/api/Seo/recommendations";
-  let url ="http://ec2-15-206-164-71.ap-south-1.compute.amazonaws.com:3000/api/Seo/recommendations"
-  //let url ="http://ec2-13-126-103-12.ap-south-1.compute.amazonaws.com:3000/api/Seo/recommendations"
+  const url = getRecommendationsUrl();
+  const token = getToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    RequestId: localStorage.getItem("RequestId") ?? "",
+  };
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
 
   const response = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      RequestId: localStorage.getItem("RequestId") ?? "",
-    },
+    headers,
     body: JSON.stringify(request),
   });
 
   if (!response.ok) {
-    throw new Error("API error");
+    throw new Error(`API error: ${response.status} ${response.statusText}`);
   }
 
   return response.json();
@@ -47,7 +53,7 @@ interface ScoreGaugesProps {
   primaryKeyword?: string;
   content?: string;
   originalContent?: string;
-  analysisRequest?:AnalysisRequest|null
+  analysisRequest?: AnalysisRequest | null;
   handleMetricLoading(): void;
   onEditorSave?: (data: { updatedContent: string; keyword: string }) => void;
 }
@@ -128,7 +134,7 @@ export default function ScoreGauges({
   originalContent,
   analysisRequest,
   handleMetricLoading,
-  onEditorSave
+  onEditorSave,
 }: ScoreGaugesProps) {
   if (!analysisResult && !isLoading) return null;
 
@@ -136,10 +142,15 @@ export default function ScoreGauges({
   const [attempts, setAttempts] = useState(0);
   const [recommendationsReady, setRecommendationsReady] = useState(false);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+
   /* ================= START POLLING WHEN ANALYSIS RESULT COMES ================= */
-  const { data, loading, error } = useRecommendations(analysisRequest);
+  const { data, loading, error } = useRecommendations(
+    analysisRequest && analysisResult && (!analysisResult.error || analysisResult.error.trim() === "")
+      ? analysisRequest
+      : null
+  );
   useEffect(() => {
-    if (!analysisResult || !primaryKeyword) return;
+    if (!analysisResult || !primaryKeyword || analysisResult.error) return;
 
     let cancelled = false;
 
@@ -192,8 +203,6 @@ export default function ScoreGauges({
     if (!analysisResult) return [];
 
     const userVisible = analysisResult.finalScores.userVisible;
-    const level2 = analysisResult.level2Scores || {};
-    const { data: recData, loading: recLoading } = useRecommendations(analysisRequest);
 
     return [
       {
@@ -237,12 +246,13 @@ export default function ScoreGauges({
   const metrics = getMetrics();
   const handleSaveFromEditor = (updatedHtml: string) => {
     if (onEditorSave) {
-      onEditorSave({ 
-        updatedContent: updatedHtml, 
-        keyword: primaryKeyword ?? "" 
+      onEditorSave({
+        updatedContent: updatedHtml,
+        keyword: primaryKeyword ?? "",
       });
     }
   };
+
   return (
     <div className="metrics-display-section bg-white py-8 sm:py-12 lg:py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -256,66 +266,51 @@ export default function ScoreGauges({
             </button>
 
             <button
-  className={`px-4 py-2 rounded-md font-medium transition ${
-    recommendationsReady
-      ? "bg-emerald-600 text-white hover:bg-emerald-700"
-      : "bg-gray-400 text-white cursor-not-allowed"
-  }`}
-  disabled={!recommendationsReady}
-  title={
-    !recommendationsReady
-      ? "Fetching recommendations, please wait 2–3 minutes"
-      : ""
-  }
-  onClick={() =>
-    exportSeoReport(
-      analysisResult,
-      primaryKeyword,
-      originalContent,
-      content
-    )
-  }
->
-  Export Report (.docx)
-</button>
-
-                  <button
-                      onClick={() => setIsEditorOpen(true)}
-                      disabled={ !recommendationsReady}
-                      className={`px-4 py-2 rounded-md font-medium transition ${
-    recommendationsReady
-      ? "bg-emerald-600 text-white hover:bg-emerald-700"
-      : "bg-gray-400 text-white cursor-not-allowed"
-  }`}
-                    >
-                      ✏️Recommendations
-                    </button>
-
+              onClick={() => setIsEditorOpen(true)}
+              disabled={!recommendationsReady}
+              className={`px-4 py-2 rounded-md font-medium transition ${
+                recommendationsReady
+                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                  : "bg-gray-400 text-white cursor-not-allowed"
+              }`}
+            >
+              ✏️Recommendations
+            </button>
           </div>
         )}
-      {isEditorOpen && data?.recommendations && (
-        <DocumentEditor
-          isOpen={isEditorOpen}
-          onSave={handleSaveFromEditor}
-          onClose={() => setIsEditorOpen(false)}
-          content={content} // pass rich HTML content (from ContentUpload) so editor shows formatted article
-          recommendations={data.recommendations}  // pass full recommendation sets
-        />
-      )}
+        {isEditorOpen && data?.recommendations && (
+          <DocumentEditor
+            isOpen={isEditorOpen}
+            onSave={handleSaveFromEditor}
+            onClose={() => setIsEditorOpen(false)}
+            content={content}
+            recommendations={data.recommendations}
+            onExportReport={() =>
+              exportSeoReport(
+                analysisResult!,
+                primaryKeyword ?? "",
+                originalContent,
+                content
+              )
+            }
+          />
+        )}
 
-        {!isEditorOpen && <div className="score-container" >
-          <div className="score-top">
-            {metrics.slice(0, 2).map((metric, index) => (
-              <ScoreGauge key={index} {...metric} />
-            ))}
-          </div>
+        {!isEditorOpen && (
+          <div className="score-container">
+            <div className="score-top">
+              {metrics.slice(0, 2).map((metric, index) => (
+                <ScoreGauge key={index} {...metric} />
+              ))}
+            </div>
 
-          <div className="score-bottom">
-            {metrics.slice(2).map((metric, index) => (
-              <ScoreGauge key={index} {...metric} />
-            ))}
+            <div className="score-bottom">
+              {metrics.slice(2).map((metric, index) => (
+                <ScoreGauge key={index} {...metric} />
+              ))}
+            </div>
           </div>
-        </div>}
+        )}
       </div>
     </div>
   );

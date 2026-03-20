@@ -1,53 +1,46 @@
-import { AlertCircle, CheckCircle, InfoIcon } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { Recommendation } from "@/services/seoAnalysis";
+import { RecommendationOptions } from "./RecommendationOptions";
 
 interface RecommendationsListProps {
   recommendations: Recommendation[];
   selectedIndex: number | null;
   onSelectRecommendation: (index: number) => void;
+  onApplySuggestion: (suggestion: string) => void;
 }
 
 export function RecommendationsList({
   recommendations,
   selectedIndex,
   onSelectRecommendation,
+  onApplySuggestion,
 }: RecommendationsListProps) {
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "High":
-        return "bg-red-50 border-red-200 hover:bg-red-100";
-      case "Medium":
-        return "bg-yellow-50 border-yellow-200 hover:bg-yellow-100";
-      case "Low":
-        return "bg-blue-50 border-blue-200 hover:bg-blue-100";
-      default:
-        return "bg-gray-50 border-gray-200 hover:bg-gray-100";
-    }
-  };
+  // Accordion behavior: only one open at a time, default first open
+  const [openIndex, setOpenIndex] = useState<number | null>(
+    recommendations.length > 0 ? 0 : null
+  );
 
-  const getPriorityIconColor = (priority: string) => {
-    switch (priority) {
-      case "High":
-        return "text-red-600";
-      case "Medium":
-        return "text-yellow-600";
-      case "Low":
-        return "text-blue-600";
-      default:
-        return "text-gray-600";
-    }
-  };
+  // refs for scrolling into view
+  const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
 
-  const getPriorityBadgeColor = (priority: string) => {
-    switch (priority) {
-      case "High":
-        return "bg-red-100 text-red-800";
-      case "Medium":
-        return "bg-yellow-100 text-yellow-800";
-      case "Low":
-        return "bg-blue-100 text-blue-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+  useEffect(() => {
+    // keep openIndex in sync when parent selection changes
+    if (selectedIndex !== null && selectedIndex !== undefined) {
+      setOpenIndex(selectedIndex);
+    }
+  }, [selectedIndex]);
+
+  const handleToggle = (index: number) => {
+    const next = openIndex === index ? null : index;
+    setOpenIndex(next);
+    if (next !== null) {
+      onSelectRecommendation(index);
+      // scroll into view
+      const el = itemRefs.current[index];
+      if (el && el.scrollIntoView) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
     }
   };
 
@@ -58,59 +51,55 @@ export function RecommendationsList({
           {recommendations.length} Recommendations
         </h3>
         <p className="text-sm text-gray-600 mt-1">
-          Select an issue to view and apply suggestions
+          Tap an item to expand its details; only one is open at a time
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-2 p-4">
+      <div className="flex-1 overflow-y-auto divide-y divide-gray-100 p-2">
         {recommendations.map((rec, index) => (
-          <button
+          <div
             key={index}
-            onClick={() => onSelectRecommendation(index)}
-            className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-              selectedIndex === index
-                ? "border-orange-500 bg-orange-50 shadow-md"
-                : `border-gray-200 ${getPriorityColor(rec.priority)}`
-            }`}
+            ref={(el) => (itemRefs.current[index] = el)}
+            className="w-full"
           >
-            <div className="flex items-start gap-3">
-              <div className={`flex-shrink-0 mt-0.5 ${getPriorityIconColor(rec.priority)}`}>
-                {rec.priority === "High" && <AlertCircle className="w-5 h-5" />}
-                {rec.priority === "Medium" && <InfoIcon className="w-5 h-5" />}
-                {rec.priority === "Low" && <CheckCircle className="w-5 h-5" />}
+            <button
+              onClick={() => handleToggle(index)}
+              className={`w-full text-left py-3 px-4 flex items-center justify-between transition-colors ${
+                openIndex === index ? "bg-orange-50 text-gray-900" : "hover:bg-gray-50 text-gray-700"
+              }`}
+            >
+              <div className="flex items-center gap-3 w-full">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{rec.issue}</p>
+                  <p className="text-xs text-gray-500 truncate mt-1">{rec.whatToChange}</p>
+                </div>
+                <div className="ml-3 text-xs text-gray-400 flex items-center gap-2">
+                  <div className="px-2 py-0.5 rounded text-xs bg-gray-100">{rec.priority}</div>
+                  <div>
+                    {openIndex === index ? (
+                      <ChevronUp className="w-4 h-4 text-gray-500" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-gray-500" />
+                    )}
+                  </div>
+                </div>
               </div>
+            </button>
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span
-                    className={`text-xs font-semibold px-2 py-1 rounded ${getPriorityBadgeColor(
-                      rec.priority
-                    )}`}
-                  >
-                    {rec.priority}
-                  </span>
-                </div>
-                <p className="text-sm font-medium text-gray-900 line-clamp-2">
-                  {rec.issue}
-                </p>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {rec.improves.slice(0, 2).map((tag, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-block text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                  {rec.improves.length > 2 && (
-                    <span className="inline-block text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
-                      +{rec.improves.length - 2}
-                    </span>
-                  )}
-                </div>
-              </div>
+            {/* Expanded panel */}
+            <div
+              className={`overflow-hidden transition-[max-height] duration-300 ease-in-out px-4 ${
+                openIndex === index ? "max-h-[1200px] py-4" : "max-h-0"
+              }`}
+            >
+              {openIndex === index && (
+                <RecommendationOptions
+                  recommendation={rec}
+                  onApplySuggestion={onApplySuggestion}
+                />
+              )}
             </div>
-          </button>
+          </div>
         ))}
       </div>
     </div>
