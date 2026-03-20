@@ -1,10 +1,21 @@
 import { useEffect, useRef } from "react";
+import {
+  Heading1,
+  Heading2,
+  Heading3,
+  Heading4,
+  Link2,
+  List,
+  ListOrdered,
+  Pilcrow,
+} from "lucide-react";
 
 interface InteractiveEditorProps {
   content: string;
   onContentChange: (content: string) => void;
   highlightText?: string;
   highlightTrigger?: number;
+  highlightMode?: "overall" | "sentence" | "section";
 }
 
 export function InteractiveEditor({
@@ -12,114 +23,146 @@ export function InteractiveEditor({
   onContentChange,
   highlightText,
   highlightTrigger,
+  highlightMode = "overall",
 }: InteractiveEditorProps) {
-  const containerRef = useRef<HTMLDivElement>(null); // scrollable container
-  const contentRef = useRef<HTMLDivElement>(null); // editable content
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
 
-
-  // Update content display when content (rich HTML) changes
   useEffect(() => {
     if (contentRef.current && contentRef.current.innerHTML !== content) {
       contentRef.current.innerHTML = content;
     }
   }, [content]);
 
-  // formatting helpers using execCommand for simplicity
   const execFormat = (cmd: string, value?: string) => {
     document.execCommand(cmd, false as any, value);
-    // bubble up changes
     if (contentRef.current) onContentChange(contentRef.current.innerHTML);
     contentRef.current?.focus();
   };
 
+  const applyBlockFormat = (tag: "p" | "h1" | "h2" | "h3" | "h4") => {
+    execFormat("formatBlock", `<${tag}>`);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // keep Tab inside editor as 2 spaces
-    if (e.key === 'Tab') {
+    if (e.key === "Tab") {
       e.preventDefault();
-      const sel = window.getSelection();
-      if (!sel || !sel.rangeCount) return;
-      const range = sel.getRangeAt(0);
-      const tabNode = document.createTextNode('\u00a0\u00a0');
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount) return;
+      const range = selection.getRangeAt(0);
+      const tabNode = document.createTextNode("\u00a0\u00a0");
       range.insertNode(tabNode);
       range.setStartAfter(tabNode);
       range.setEndAfter(tabNode);
-      sel.removeAllRanges();
-      sel.addRange(range);
-      onContentChange(contentRef.current?.innerHTML || '');
+      selection.removeAllRanges();
+      selection.addRange(range);
+      onContentChange(contentRef.current?.innerHTML || "");
     }
   };
 
-  // Highlight the relevant text when highlightText changes
   useEffect(() => {
     if (!contentRef.current) return;
 
-    // helper to clear highlights
     const clearHighlights = () => {
-      const highlighted = contentRef.current!.querySelectorAll('.highlighted-text');
-      highlighted.forEach((el) => {
+      const highlightedText = contentRef.current!.querySelectorAll(".highlighted-text");
+      highlightedText.forEach((el) => {
         const parent = el.parentNode;
         if (parent) {
-          parent.replaceChild(document.createTextNode(el.textContent || ''), el);
+          parent.replaceChild(document.createTextNode(el.textContent || ""), el);
           parent.normalize();
         }
       });
+
+      const highlightedSections = contentRef.current!.querySelectorAll(".highlighted-section");
+      highlightedSections.forEach((el) => {
+        el.classList.remove("highlighted-section");
+        (el as HTMLElement).style.background = "";
+        (el as HTMLElement).style.borderRadius = "";
+        (el as HTMLElement).style.boxShadow = "";
+        (el as HTMLElement).style.paddingInline = "";
+      });
     };
-
-    if (!highlightText) {
-      clearHighlights();
-      return;
-    }
-
-    const fullText = contentRef.current.innerText || '';
-    if (fullText.indexOf(highlightText) === -1) {
-      // exact bad text not found — do nothing
-      return;
-    }
-
-    const escaped = highlightText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(escaped, 'g');
 
     clearHighlights();
 
-    const walker = document.createTreeWalker(contentRef.current, NodeFilter.SHOW_TEXT, null);
-    const nodes: Node[] = [];
-    let n: Node | null = null;
-    while ((n = walker.nextNode())) {
-      if (regex.test(n.textContent || '')) nodes.push(n);
+    if (!highlightText || highlightMode === "overall") {
+      return;
     }
 
-    nodes.forEach((node) => {
-      const span = document.createElement('span');
-      const text = node.textContent || '';
-      span.innerHTML = text.replace(regex, '<span class="highlighted-text" style="background-color:#fef08a;font-weight:600;padding:0 4px;border-radius:4px;">$&</span>');
-      node.parentNode!.replaceChild(span, node);
-    });
+    if (highlightMode === "sentence") {
+      const fullText = contentRef.current.innerText || "";
+      if (fullText.indexOf(highlightText) === -1) return;
 
-    const firstMatch = contentRef.current.querySelector('.highlighted-text') as HTMLElement | null;
-    if (firstMatch) {
-      // choose the scrollable element (the editable content itself)
-      const container = contentRef.current as HTMLElement;
-      try {
-        // Calculate offset relative to container and center the match
-        const containerRect = container.getBoundingClientRect();
-        const targetRect = firstMatch.getBoundingClientRect();
-        const relativeTop = targetRect.top - containerRect.top + container.scrollTop;
-        const scrollTo = Math.max(0, relativeTop - container.clientHeight / 2 + targetRect.height / 2);
-        container.scrollTo({ top: scrollTo, behavior: 'smooth' });
+      const escaped = highlightText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(escaped, "g");
 
-        // move caret to the match start
-        const range = document.createRange();
-        range.selectNodeContents(firstMatch);
-        range.collapse(true);
-        const sel = window.getSelection();
-        sel?.removeAllRanges();
-        sel?.addRange(range);
-      } catch {
-        firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const walker = document.createTreeWalker(contentRef.current, NodeFilter.SHOW_TEXT, null);
+      const nodes: Node[] = [];
+      let node: Node | null = null;
+      while ((node = walker.nextNode())) {
+        if (regex.test(node.textContent || "")) nodes.push(node);
       }
+
+      nodes.forEach((textNode) => {
+        const span = document.createElement("span");
+        const text = textNode.textContent || "";
+        span.innerHTML = text.replace(
+          regex,
+          '<span class="highlighted-text" style="background-color:#fde68a;font-weight:600;padding:0 4px;border-radius:4px;">$&</span>',
+        );
+        textNode.parentNode!.replaceChild(span, textNode);
+      });
+
+      const firstMatch = contentRef.current.querySelector(".highlighted-text") as HTMLElement | null;
+      if (firstMatch) {
+        firstMatch.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      return;
     }
-  }, [highlightText, highlightTrigger]);
+
+    if (highlightMode === "section") {
+      const blocks = Array.from(contentRef.current.children) as HTMLElement[];
+      if (!blocks.length) return;
+
+      const targetIndex = blocks.findIndex((block) =>
+        (block.textContent || "").includes(highlightText),
+      );
+
+      if (targetIndex === -1) return;
+
+      const isHeadingTag = (tagName: string) => /^H[1-6]$/.test(tagName);
+
+      let startIndex = targetIndex;
+      for (let index = targetIndex; index >= 0; index -= 1) {
+        if (isHeadingTag(blocks[index].tagName)) {
+          startIndex = index;
+          break;
+        }
+        startIndex = 0;
+      }
+
+      let endIndex = blocks.length;
+      for (let index = targetIndex + 1; index < blocks.length; index += 1) {
+        if (isHeadingTag(blocks[index].tagName)) {
+          endIndex = index;
+          break;
+        }
+      }
+
+      const sectionBlocks = blocks.slice(startIndex, endIndex);
+      sectionBlocks.forEach((block) => {
+        block.classList.add("highlighted-section");
+        block.style.background = "linear-gradient(90deg, rgba(253,230,138,0.32), rgba(253,230,138,0.08))";
+        block.style.borderRadius = "12px";
+        block.style.boxShadow = "inset 4px 0 0 #f59e0b";
+        block.style.paddingInline = "12px";
+      });
+
+      const firstBlock = sectionBlocks[0];
+      firstBlock?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightText, highlightTrigger, highlightMode]);
 
   const handleInput = () => {
     if (contentRef.current) {
@@ -128,29 +171,87 @@ export function InteractiveEditor({
   };
 
   return (
-    <div className="interactive-editor h-full flex flex-col bg-white">
-      {/* Header + Toolbar */}
-      <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-white flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Document Editor</h2>
-          <p className="text-sm text-gray-600 mt-1">Select a recommendation to highlight and edit content inline</p>
-        </div>
-        <div ref={toolbarRef} className="flex items-center gap-2">
-          <button aria-label="Bold" onClick={() => execFormat('bold')} className="px-3 py-1 rounded bg-white border hover:bg-gray-50">B</button>
-          <button aria-label="Italic" onClick={() => execFormat('italic')} className="px-3 py-1 rounded bg-white border hover:bg-gray-50">I</button>
-          <button aria-label="Underline" onClick={() => execFormat('underline')} className="px-3 py-1 rounded bg-white border hover:bg-gray-50">U</button>
-          <button aria-label="Bulleted list" onClick={() => execFormat('insertUnorderedList')} className="px-3 py-1 rounded bg-white border hover:bg-gray-50">• List</button>
-          <button aria-label="Numbered list" onClick={() => execFormat('insertOrderedList')} className="px-3 py-1 rounded bg-white border hover:bg-gray-50">1. List</button>
-          <button aria-label="Insert link" onClick={() => { const url = prompt('Enter URL'); if (url) execFormat('createLink', url); }} className="px-3 py-1 rounded bg-white border hover:bg-gray-50">Link</button>
+    <div className="interactive-editor flex h-full flex-col bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)]">
+      <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 px-5 py-3 backdrop-blur">
+        <div ref={toolbarRef} className="flex flex-wrap items-center gap-2">
+          <button
+            aria-label="Paragraph"
+            title="Paragraph"
+            onClick={() => applyBlockFormat("p")}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            <Pilcrow className="h-4 w-4" />
+          </button>
+          <button
+            aria-label="Heading 1"
+            title="Heading 1"
+            onClick={() => applyBlockFormat("h1")}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            <Heading1 className="h-4 w-4" />
+          </button>
+          <button
+            aria-label="Heading 2"
+            title="Heading 2"
+            onClick={() => applyBlockFormat("h2")}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            <Heading2 className="h-4 w-4" />
+          </button>
+          <button
+            aria-label="Heading 3"
+            title="Heading 3"
+            onClick={() => applyBlockFormat("h3")}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            <Heading3 className="h-4 w-4" />
+          </button>
+          <button
+            aria-label="Heading 4"
+            title="Heading 4"
+            onClick={() => applyBlockFormat("h4")}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            <Heading4 className="h-4 w-4" />
+          </button>
+          <button
+            aria-label="Bulleted list"
+            title="Bulleted list"
+            onClick={() => execFormat("insertUnorderedList")}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            <List className="h-4 w-4" />
+          </button>
+          <button
+            aria-label="Numbered list"
+            title="Numbered list"
+            onClick={() => execFormat("insertOrderedList")}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            <ListOrdered className="h-4 w-4" />
+          </button>
+          <button
+            aria-label="Insert link"
+            title="Insert link"
+            onClick={() => {
+              const url = prompt("Enter URL");
+              if (url) execFormat("createLink", url);
+            }}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            <Link2 className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
-      {/* Editor Area */}
-      <div ref={containerRef} className="flex-1 p-4" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <div className="flex-1 relative">
-          {/* placeholder when editor is empty */}
-          {(!content || content.replace(/\s|&nbsp;|<br\/?>(\s*)?/g, '').length === 0) && (
-            <div className="absolute inset-0 pointer-events-none p-6 text-gray-400">
+      <div
+        ref={containerRef}
+        className="flex-1 p-4 sm:p-5"
+        style={{ display: "flex", flexDirection: "column", minHeight: 0 }}
+      >
+        <div className="relative flex-1">
+          {(!content || content.replace(/\s|&nbsp;|<br\/?>(\s*)?/g, "").length === 0) && (
+            <div className="pointer-events-none absolute inset-0 p-8 text-sm text-slate-400">
               Paste or type your article here. Use the toolbar to format text.
             </div>
           )}
@@ -163,22 +264,13 @@ export function InteractiveEditor({
             suppressContentEditableWarning
             role="textbox"
             aria-multiline
-            className="min-h-[250px] max-h-[500px] overflow-y-auto border rounded-md bg-white prose rich-prose max-w-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 p-6 text-gray-900 leading-relaxed"
+            className="h-full min-h-[620px] overflow-y-auto rounded-2xl border border-slate-200 bg-white px-8 py-7 prose rich-prose max-w-none text-slate-900 leading-relaxed shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/20 focus:ring-offset-2"
             style={{
-              border: '1px solid #e2e8f0',
-              wordWrap: 'break-word',
-              overflowWrap: 'break-word',
-              whiteSpace: 'pre-wrap',
+              wordWrap: "break-word",
+              overflowWrap: "break-word",
+              whiteSpace: "pre-wrap",
             }}
           />
-        </div>
-      </div>
-
-      {/* Footer Info */}
-      <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 text-xs text-gray-600">
-        <div className="flex items-center justify-between">
-          <div>💡 Click a recommendation to highlight related content and apply fixes.</div>
-          <div className="text-right">Words: {content ? content.replace(/<[^>]+>/g, '').split(/\s+/).filter(Boolean).length : 0}</div>
         </div>
       </div>
     </div>

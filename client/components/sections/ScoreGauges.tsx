@@ -10,16 +10,14 @@ import { DocumentEditor } from "./DocumentEditor";
 import { useRecommendations } from "@/hooks/fetch-recommendations";
 import { getRecommendationsUrl } from "@/utils/ApiConfig";
 import { getToken } from "@/utils/AuthApi";
-
-/* ================= POLLING CONFIG ================= */
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 
 const MAX_ATTEMPTS = 10;
-const POLL_INTERVAL = 10_000; // 10 seconds
-
-/* ================= API ================= */
+const POLL_INTERVAL = 10_000;
 
 async function GetRecommendations(
-  request: AnalysisRequest
+  request: AnalysisRequest,
 ): Promise<RecommendationResponse> {
   const url = getRecommendationsUrl();
   const token = getToken();
@@ -29,7 +27,7 @@ async function GetRecommendations(
   };
 
   if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+    headers.Authorization = `Bearer ${token}`;
   }
 
   const response = await fetch(url, {
@@ -44,8 +42,6 @@ async function GetRecommendations(
 
   return response.json();
 }
-
-/* ================= TYPES ================= */
 
 interface ScoreGaugesProps {
   analysisResult?: AnalysisResponse | null;
@@ -64,17 +60,10 @@ interface MetricItem {
   max: number;
   color: string;
   showPercentage: boolean;
+  description: string;
 }
 
-/* ---------------- Gauge Component ---------------- */
-
-interface ScoreGaugeProps {
-  label: string;
-  value: number;
-  max?: number;
-  color: string;
-  showPercentage: boolean;
-}
+interface ScoreGaugeProps extends MetricItem {}
 
 const ScoreGauge = ({
   label,
@@ -82,6 +71,7 @@ const ScoreGauge = ({
   max = 100,
   color,
   showPercentage,
+  description,
 }: ScoreGaugeProps) => {
   const radius = 45;
   const circumference = Math.PI * radius;
@@ -90,7 +80,23 @@ const ScoreGauge = ({
 
   return (
     <div className="gauge-card">
-      <div className="gauge-label">{label}</div>
+      <div className="gauge-label">
+        <span>{label}</span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="gauge-info"
+              aria-label={`More information about ${label}`}
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs text-sm leading-6">
+            {description}
+          </TooltipContent>
+        </Tooltip>
+      </div>
 
       <div className="gauge-wrapper">
         <svg viewBox="0 0 120 70" className="gauge">
@@ -124,8 +130,6 @@ const ScoreGauge = ({
   );
 };
 
-/* ---------------- Main Component ---------------- */
-
 export default function ScoreGauges({
   analysisResult,
   isLoading,
@@ -143,12 +147,14 @@ export default function ScoreGauges({
   const [recommendationsReady, setRecommendationsReady] = useState(false);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
-  /* ================= START POLLING WHEN ANALYSIS RESULT COMES ================= */
-  const { data, loading, error } = useRecommendations(
-    analysisRequest && analysisResult && (!analysisResult.error || analysisResult.error.trim() === "")
+  const { data } = useRecommendations(
+    analysisRequest &&
+      analysisResult &&
+      (!analysisResult.error || analysisResult.error.trim() === "")
       ? analysisRequest
-      : null
+      : null,
   );
+
   useEffect(() => {
     if (!analysisResult || !primaryKeyword || analysisResult.error) return;
 
@@ -169,7 +175,7 @@ export default function ScoreGauges({
       setAttempts(0);
       setRecommendationsReady(false);
 
-      for (let i = 1; i <= MAX_ATTEMPTS; i++) {
+      for (let i = 1; i <= MAX_ATTEMPTS; i += 1) {
         if (cancelled) return;
 
         try {
@@ -186,7 +192,7 @@ export default function ScoreGauges({
         }
 
         setAttempts(i);
-        await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
       }
 
       setIsPolling(false);
@@ -211,6 +217,8 @@ export default function ScoreGauges({
         max: 100,
         color: "#4f46e5",
         showPercentage: false,
+        description:
+          "A blended measure of on-page optimization, structure, and keyword alignment.",
       },
       {
         label: "AI Indexing",
@@ -218,6 +226,8 @@ export default function ScoreGauges({
         max: 100,
         color: "#10b981",
         showPercentage: false,
+        description:
+          "How well the content is structured for AI systems and machine-assisted discovery.",
       },
       {
         label: "Expertise",
@@ -225,6 +235,8 @@ export default function ScoreGauges({
         max: 100,
         color: "#3b82f6",
         showPercentage: true,
+        description:
+          "Signals that the content demonstrates first-hand knowledge and subject depth.",
       },
       {
         label: "Authority",
@@ -232,6 +244,8 @@ export default function ScoreGauges({
         max: 100,
         color: "#8b5cf6",
         showPercentage: false,
+        description:
+          "Indicates how trustworthy and credible the content feels to readers and search systems.",
       },
       {
         label: "Readability",
@@ -239,11 +253,14 @@ export default function ScoreGauges({
         max: 100,
         color: "#f97316",
         showPercentage: false,
+        description:
+          "Estimates how easily readers can scan, understand, and retain the content.",
       },
     ];
   };
 
   const metrics = getMetrics();
+
   const handleSaveFromEditor = (updatedHtml: string) => {
     if (onEditorSave) {
       onEditorSave({
@@ -255,62 +272,72 @@ export default function ScoreGauges({
 
   return (
     <div className="metrics-display-section bg-white py-8 sm:py-12 lg:py-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {analysisResult && (
-          <div className="score-buttons flex justify-end mb-6 gap-x-4">
-            <button
-              className="px-4 py-2 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
-              onClick={handleMetricLoading}
-            >
-              Analyze More Content
-            </button>
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        {analysisResult ? (
+          <div className="score-shell">
+            <div className="score-buttons">
+              <div className="score-summary">
+                <p className="score-kicker">Performance Overview</p>
+                <h3>Your content quality snapshot</h3>
+                <p>
+                  Review the latest analysis scores and open recommendations once processing is complete.
+                </p>
+                {isPolling ? (
+                  <span className="score-status">Preparing recommendations • attempt {attempts} of {MAX_ATTEMPTS}</span>
+                ) : recommendationsReady ? (
+                  <span className="score-status score-status-ready">Recommendations ready</span>
+                ) : null}
+              </div>
 
-            <button
-              onClick={() => setIsEditorOpen(true)}
-              disabled={!recommendationsReady}
-              className={`px-4 py-2 rounded-md font-medium transition ${
-                recommendationsReady
-                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                  : "bg-gray-400 text-white cursor-not-allowed"
-              }`}
-            >
-              ✏️Recommendations
-            </button>
-          </div>
-        )}
-        {isEditorOpen && data?.recommendations && (
-          <DocumentEditor
-            isOpen={isEditorOpen}
-            onSave={handleSaveFromEditor}
-            onClose={() => setIsEditorOpen(false)}
-            content={content}
-            recommendations={data.recommendations}
-            onExportReport={() =>
-              exportSeoReport(
-                analysisResult!,
-                primaryKeyword ?? "",
-                originalContent,
-                content
-              )
-            }
-          />
-        )}
-
-        {!isEditorOpen && (
-          <div className="score-container">
-            <div className="score-top">
-              {metrics.slice(0, 2).map((metric, index) => (
-                <ScoreGauge key={index} {...metric} />
-              ))}
+              <div className="score-actions">
+                <button className="score-button-secondary" onClick={handleMetricLoading}>
+                  Analyze More Content
+                </button>
+                <button
+                  onClick={() => setIsEditorOpen(true)}
+                  disabled={!recommendationsReady}
+                  className={recommendationsReady ? "score-button-primary" : "score-button-disabled"}
+                >
+                  Recommendations
+                </button>
+              </div>
             </div>
 
-            <div className="score-bottom">
-              {metrics.slice(2).map((metric, index) => (
-                <ScoreGauge key={index} {...metric} />
-              ))}
-            </div>
+            {isEditorOpen && data?.recommendations ? (
+              <DocumentEditor
+                isOpen={isEditorOpen}
+                onSave={handleSaveFromEditor}
+                onClose={() => setIsEditorOpen(false)}
+                content={content}
+                recommendations={data.recommendations}
+                onExportReport={() =>
+                  exportSeoReport(
+                    analysisResult,
+                    primaryKeyword ?? "",
+                    originalContent,
+                    content,
+                  )
+                }
+              />
+            ) : null}
+
+            {!isEditorOpen ? (
+              <div className="score-container">
+                <div className="score-top">
+                  {metrics.slice(0, 2).map((metric, index) => (
+                    <ScoreGauge key={index} {...metric} />
+                  ))}
+                </div>
+
+                <div className="score-bottom">
+                  {metrics.slice(2).map((metric, index) => (
+                    <ScoreGauge key={index} {...metric} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

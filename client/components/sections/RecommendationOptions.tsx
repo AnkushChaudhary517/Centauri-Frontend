@@ -7,6 +7,99 @@ interface RecommendationOptionsProps {
   onApplySuggestion: (suggestion: string) => void;
 }
 
+const IMPROVEMENT_COPY: Record<
+  string,
+  { userAttribute: string; meaning: string }
+> = {
+  sectionscore: {
+    userAttribute: "Topical Coverage",
+    meaning: "whether the article covers all the important sections readers expect",
+  },
+  intentscore: {
+    userAttribute: "Search Intent Alignment",
+    meaning: "whether the article answers the reader's question clearly and completely",
+  },
+  authorityscore: {
+    userAttribute: "Authority",
+    meaning: "whether the article shows real expertise and confidence on the topic",
+  },
+  credibilityscore: {
+    userAttribute: "Credibility",
+    meaning: "whether important claims are supported by trustworthy information",
+  },
+  readabilityscore: {
+    userAttribute: "Readability",
+    meaning: "how easy the article is to read and understand",
+  },
+  simplicityscore: {
+    userAttribute: "Clarity",
+    meaning: "how simple and easy the sentence structure feels",
+  },
+  variationscore: {
+    userAttribute: "Writing Flow",
+    meaning: "how natural and varied the writing feels from sentence to sentence",
+  },
+  grammarscore: {
+    userAttribute: "Grammar",
+    meaning: "how correct and polished the language feels",
+  },
+  originalinfoscore: {
+    userAttribute: "Original Insight",
+    meaning: "whether the article adds useful original ideas instead of repeating generic points",
+  },
+  relevancescore: {
+    userAttribute: "Topic Relevance",
+    meaning: "how closely the article stays focused on the intended topic",
+  },
+  retrievalfactualityscore: {
+    userAttribute: "Answer Accuracy",
+    meaning: "whether the article gives clear, factual, and dependable answers",
+  },
+  synthesiscoherencescore: {
+    userAttribute: "Content Cohesion",
+    meaning: "how logically the ideas connect and flow across the article",
+  },
+  aiindexingscore: {
+    userAttribute: "AI Discoverability",
+    meaning: "how easily AI systems can understand and retrieve this content",
+  },
+  seoscore: {
+    userAttribute: "Search Visibility",
+    meaning: "how likely the article is to perform well in search results",
+  },
+};
+
+function normalizeImproveKey(value: string) {
+  return value.toLowerCase().replace(/[^a-z]/g, "");
+}
+
+function buildImprovementSummary(improves: string[] = []) {
+  if (improves.length === 0) {
+    return "This change improves the overall quality and usefulness of the content.";
+  }
+
+  const mappedItems = improves.map((item) => {
+    const match = IMPROVEMENT_COPY[normalizeImproveKey(item)];
+    if (match) {
+      return `${match.userAttribute} by improving ${match.meaning}`;
+    }
+
+    return item;
+  });
+
+  if (mappedItems.length === 1) {
+    return `This change improves ${mappedItems[0]}.`;
+  }
+
+  if (mappedItems.length === 2) {
+    return `This change improves ${mappedItems[0]} and ${mappedItems[1]}.`;
+  }
+
+  return `This change improves ${mappedItems
+    .slice(0, -1)
+    .join(", ")}, and ${mappedItems[mappedItems.length - 1]}.`;
+}
+
 export function RecommendationOptions({
   recommendation,
   onApplySuggestion,
@@ -117,15 +210,7 @@ export function RecommendationOptions({
         <div>
           <h3 className="text-lg font-semibold text-gray-900 mb-3">This will improve</h3>
           <p className="text-sm text-gray-700">
-            {(() => {
-              const parts = recommendation.improves || [];
-              if (parts.length === 0) return "Overall content quality.";
-              if (parts.length === 1) return `${parts[0]}.`;
-              if (parts.length === 2) return `${parts[0]} and ${parts[1]}.`;
-              const firsts = parts.slice(0, -1).join(", ");
-              const last = parts[parts.length - 1];
-              return `${firsts}, and ${last}.`;
-            })()}
+            {buildImprovementSummary(recommendation.improves)}
           </p>
         </div>
 

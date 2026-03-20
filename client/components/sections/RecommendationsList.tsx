@@ -16,91 +16,101 @@ export function RecommendationsList({
   onSelectRecommendation,
   onApplySuggestion,
 }: RecommendationsListProps) {
-  // Accordion behavior: only one open at a time, default first open
-  const [openIndex, setOpenIndex] = useState<number | null>(
-    recommendations.length > 0 ? 0 : null
+  const [openIndices, setOpenIndices] = useState<number[]>(
+    recommendations.map((_, index) => index),
   );
 
-  // refs for scrolling into view
   const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
 
   useEffect(() => {
-    // keep openIndex in sync when parent selection changes
+    setOpenIndices(recommendations.map((_, index) => index));
+  }, [recommendations]);
+
+  useEffect(() => {
     if (selectedIndex !== null && selectedIndex !== undefined) {
-      setOpenIndex(selectedIndex);
+      setOpenIndices((current) =>
+        current.includes(selectedIndex) ? current : [...current, selectedIndex],
+      );
     }
   }, [selectedIndex]);
 
   const handleToggle = (index: number) => {
-    const next = openIndex === index ? null : index;
-    setOpenIndex(next);
-    if (next !== null) {
-      onSelectRecommendation(index);
-      // scroll into view
-      const el = itemRefs.current[index];
-      if (el && el.scrollIntoView) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
+    const isOpen = openIndices.includes(index);
+    const next = isOpen
+      ? openIndices.filter((item) => item !== index)
+      : [...openIndices, index];
+
+    setOpenIndices(next);
+    onSelectRecommendation(index);
+
+    const el = itemRefs.current[index];
+    if (el && el.scrollIntoView) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   };
 
   return (
-    <div className="recommendations-list h-full flex flex-col">
-      <div className="px-4 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900">
+    <div className="recommendations-list flex h-full flex-col">
+      <div className="border-b border-slate-200 px-4 py-4">
+        <h3 className="text-lg font-semibold text-slate-900">
           {recommendations.length} Recommendations
         </h3>
-        <p className="text-sm text-gray-600 mt-1">
-          Tap an item to expand its details; only one is open at a time
+        <p className="mt-1 text-sm text-slate-600">
+          All recommendation groups are expanded by default for faster review.
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto divide-y divide-gray-100 p-2">
-        {recommendations.map((rec, index) => (
-          <div
-            key={index}
-            ref={(el) => (itemRefs.current[index] = el)}
-            className="w-full"
-          >
-            <button
-              onClick={() => handleToggle(index)}
-              className={`w-full text-left py-3 px-4 flex items-center justify-between transition-colors ${
-                openIndex === index ? "bg-orange-50 text-gray-900" : "hover:bg-gray-50 text-gray-700"
-              }`}
+      <div className="flex-1 overflow-y-auto divide-y divide-slate-100 p-2">
+        {recommendations.map((rec, index) => {
+          const isOpen = openIndices.includes(index);
+
+          return (
+            <div
+              key={index}
+              ref={(el) => {
+                itemRefs.current[index] = el;
+              }}
+              className="w-full overflow-hidden rounded-2xl bg-white shadow-sm"
             >
-              <div className="flex items-center gap-3 w-full">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{rec.issue}</p>
-                  <p className="text-xs text-gray-500 truncate mt-1">{rec.whatToChange}</p>
-                </div>
-                <div className="ml-3 text-xs text-gray-400 flex items-center gap-2">
-                  <div className="px-2 py-0.5 rounded text-xs bg-gray-100">{rec.priority}</div>
-                  <div>
-                    {openIndex === index ? (
-                      <ChevronUp className="w-4 h-4 text-gray-500" />
+              <button
+                onClick={() => handleToggle(index)}
+                className={`flex w-full items-center justify-between px-4 py-3 text-left transition-colors ${
+                  isOpen ? "bg-[#eff6ff] text-slate-900" : "text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <div className="flex w-full items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{rec.issue}</p>
+                    <p className="mt-1 truncate text-xs text-slate-500">{rec.whatToChange}</p>
+                  </div>
+                  <div className="ml-3 flex items-center gap-2 text-xs text-slate-400">
+                    <div className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                      {rec.priority}
+                    </div>
+                    {isOpen ? (
+                      <ChevronUp className="h-4 w-4 text-slate-500" />
                     ) : (
-                      <ChevronDown className="w-4 h-4 text-gray-500" />
+                      <ChevronDown className="h-4 w-4 text-slate-500" />
                     )}
                   </div>
                 </div>
-              </div>
-            </button>
+              </button>
 
-            {/* Expanded panel */}
-            <div
-              className={`overflow-hidden transition-[max-height] duration-300 ease-in-out px-4 ${
-                openIndex === index ? "max-h-[1200px] py-4" : "max-h-0"
-              }`}
-            >
-              {openIndex === index && (
-                <RecommendationOptions
-                  recommendation={rec}
-                  onApplySuggestion={onApplySuggestion}
-                />
-              )}
+              <div
+                className={`overflow-hidden px-4 transition-[max-height] duration-300 ease-in-out ${
+                  isOpen ? "max-h-[1400px] py-4" : "max-h-0"
+                }`}
+              >
+                {isOpen ? (
+                  <RecommendationOptions
+                    recommendation={rec}
+                    onApplySuggestion={onApplySuggestion}
+                  />
+                ) : null}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

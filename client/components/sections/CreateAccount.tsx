@@ -10,7 +10,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Building2, CheckCircle2, ShieldCheck, UserCircle2, Users2 } from "lucide-react";
+import { Building2, CheckCircle2, Eye, EyeOff, ShieldCheck, UserCircle2, Users2 } from "lucide-react";
 
 interface CreateAccountProps {
   onBackToLogin: () => void;
@@ -29,6 +29,7 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
     password: "",
   });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const { toast } = useToast();
@@ -290,8 +291,8 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
 
       <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
         <DialogContent
-          overlayClassName="bg-transparent"
-          className="w-[min(92vw,980px)] max-w-[980px] overflow-hidden border-0 bg-transparent p-0 shadow-none"
+          overlayClassName="bg-slate-950/18 backdrop-blur-md"
+          className="h-[calc(100dvh-24px)] w-[min(96vw,1120px)] max-h-[calc(100dvh-24px)] max-w-[1120px] overflow-hidden border-0 bg-transparent p-0 shadow-none"
           onInteractOutside={(event) => event.preventDefault()}
         >
           <DialogTitle className="sr-only">Complete your account setup</DialogTitle>
@@ -299,22 +300,22 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
             Fill in your personal details to complete account setup.
           </DialogDescription>
 
-          <div className="overflow-hidden rounded-[32px] bg-[#e6eef8] shadow-[0_30px_80px_rgba(15,38,74,0.18)]">
-            <div className="grid max-h-[85vh] grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)]">
-              <aside className="relative overflow-hidden px-8 py-10 text-white bg-[linear-gradient(180deg,#0f5fb8_0%,#0a4689_100%)] lg:max-h-[85vh]">
+          <div className="h-full overflow-hidden rounded-[32px] bg-[#e6eef8] shadow-[0_30px_80px_rgba(15,38,74,0.18)]">
+            <div className="grid h-full grid-cols-1 lg:grid-cols-[250px_minmax(0,1fr)]">
+              <aside className="relative overflow-hidden bg-[linear-gradient(180deg,#0f5fb8_0%,#0a4689_100%)] px-6 py-6 text-white sm:px-8 lg:px-7 lg:py-8">
                 <div className="absolute inset-0 opacity-20">
                   <div className="absolute inset-x-0 bottom-0 h-48 bg-[radial-gradient(circle_at_bottom_left,transparent_0,transparent_38%,rgba(255,255,255,0.25)_39%,transparent_40%),radial-gradient(circle_at_bottom_center,transparent_0,transparent_38%,rgba(255,255,255,0.25)_39%,transparent_40%),radial-gradient(circle_at_bottom_right,transparent_0,transparent_38%,rgba(255,255,255,0.25)_39%,transparent_40%)]" />
                 </div>
 
-                <div className="relative">
-                  <div className="mb-14 flex items-center gap-3 text-sm font-semibold">
+                <div className="relative flex h-full flex-col">
+                  <div className="mb-8 flex items-center gap-3 text-sm font-semibold lg:mb-10">
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15">
                       <Users2 className="h-4 w-4" />
                     </div>
                     <span>Centauri</span>
                   </div>
 
-                  <div className="space-y-7">
+                  <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 lg:gap-6">
                     {sidebarSteps.map((step, index) => {
                       const Icon = step.icon;
 
@@ -332,36 +333,40 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
                     })}
                   </div>
 
-                  <p className="mt-12 text-xs text-white/65 lg:mt-28">All rights reserved @Centauri</p>
+                  <div className="mt-auto hidden lg:block">
+                    <p className="text-xs text-white/65">All rights reserved @Centauri</p>
+                  </div>
                 </div>
               </aside>
 
-              <section className="relative min-w-0 overflow-y-auto px-6 py-8 sm:px-8 sm:py-10 lg:max-h-[85vh] lg:px-12 bg-[linear-gradient(135deg,#ffffff_0%,#f2f7ff_55%,#edf4ff_100%)]">
-                <div className="pointer-events-none absolute inset-y-8 right-0 hidden w-20 overflow-hidden lg:block">
+              <section className="relative min-w-0 overflow-hidden bg-[linear-gradient(135deg,#ffffff_0%,#f2f7ff_55%,#edf4ff_100%)] px-5 py-5 sm:px-7 sm:py-6 lg:px-10 lg:py-8">
+                <div className="pointer-events-none absolute inset-y-8 right-0 hidden w-16 overflow-hidden xl:block">
                   <div className="absolute right-6 top-4 h-24 w-24 rounded-full border border-[#d8e4f3]" />
                   <div className="absolute right-0 top-36 h-24 w-24 rounded-full border border-[#d8e4f3]" />
                   <div className="absolute right-6 top-68 h-24 w-24 rounded-full border border-[#d8e4f3]" />
                   <div className="absolute right-0 bottom-0 h-24 w-24 rounded-full border border-[#d8e4f3]" />
                 </div>
 
-                <div className="mx-auto max-w-xl pr-0 lg:pr-8">
+                <div className="mx-auto flex h-full max-w-2xl flex-col justify-center pr-0 xl:pr-6">
                   <p className="text-sm font-semibold text-[#8ea2bf]">Step 1/3</p>
-                  <h3 className="mt-3 text-3xl font-bold text-[#10233f]">Basic Info</h3>
-                  <p className="mt-3 max-w-md text-sm leading-6 text-[#6d7f99]">
+                  <h3 className="mt-2 text-2xl font-bold text-[#10233f] sm:text-3xl">Basic Info</h3>
+                  <p className="mt-2 max-w-md text-sm leading-6 text-[#6d7f99]">
                     Tell us a bit about yourself to get started with your new Centauri account.
                   </p>
-                  <div className="mt-6 h-px bg-[#dfe8f4]" />
+                  <div className="mt-4 h-px bg-[#dfe8f4]" />
 
-                  <form onSubmit={handleFinishSetup} className="mt-8 space-y-5 pb-2">
-                    <div className="grid gap-5 sm:grid-cols-2">
+                  <form onSubmit={handleFinishSetup} className="mt-5 grid flex-1 content-start gap-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-[#334762]">First name</label>
+                        <label className="text-sm font-medium text-[#334762]">
+                          First name <span className="text-red-500">*</span>
+                        </label>
                         <Input
                           value={profileForm.firstName}
                           onChange={(e) => setProfileField("firstName", e.target.value)}
                           placeholder="John"
                           disabled={isLoading}
-                          className="h-11 border-[#ced9ea] bg-white/90"
+                          className="h-10 border-[#ced9ea] bg-white/90"
                         />
                         {fieldErrors.firstName ? (
                           <p className="text-xs text-red-600">{fieldErrors.firstName}</p>
@@ -369,13 +374,15 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-[#334762]">Last name</label>
+                        <label className="text-sm font-medium text-[#334762]">
+                          Last name <span className="text-red-500">*</span>
+                        </label>
                         <Input
                           value={profileForm.lastName}
                           onChange={(e) => setProfileField("lastName", e.target.value)}
                           placeholder="Doe"
                           disabled={isLoading}
-                          className="h-11 border-[#ced9ea] bg-white/90"
+                          className="h-10 border-[#ced9ea] bg-white/90"
                         />
                         {fieldErrors.lastName ? (
                           <p className="text-xs text-red-600">{fieldErrors.lastName}</p>
@@ -383,50 +390,65 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 sm:col-span-2">
                       <label className="text-sm font-medium text-[#334762]">Company</label>
                       <Input
                         value={profileForm.company}
                         onChange={(e) => setProfileField("company", e.target.value)}
                         placeholder="Your company name"
                         disabled={isLoading}
-                        className="h-11 border-[#ced9ea] bg-white/90"
+                        className="h-10 border-[#ced9ea] bg-white/90"
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-[#334762]">Email</label>
+                    <div className="space-y-2 sm:col-span-2">
+                      <label className="text-sm font-medium text-[#334762]">
+                        Email <span className="text-red-500">*</span>
+                      </label>
                       <Input
                         value={email}
                         disabled
-                        className="h-11 border-[#ced9ea] bg-[#f6f9ff] text-[#6d7f99]"
+                        className="h-10 border-[#ced9ea] bg-[#f6f9ff] text-[#6d7f99]"
                       />
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 sm:col-span-2">
                       <label className="text-sm font-medium text-[#334762]">Contact number</label>
                       <Input
                         value={profileForm.contactNumber}
                         onChange={(e) => setProfileField("contactNumber", e.target.value)}
                         placeholder="+91 9876543210"
                         disabled={isLoading}
-                        className="h-11 border-[#ced9ea] bg-white/90"
+                        className="h-10 border-[#ced9ea] bg-white/90"
                       />
                       {fieldErrors.contactNumber ? (
                         <p className="text-xs text-red-600">{fieldErrors.contactNumber}</p>
                       ) : null}
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-[#334762]">Password</label>
-                      <Input
-                        type="password"
-                        value={profileForm.password}
-                        onChange={(e) => setProfileField("password", e.target.value)}
-                        placeholder="Create a password"
-                        disabled={isLoading}
-                        className="h-11 border-[#ced9ea] bg-white/90"
-                      />
+                    <div className="space-y-2 sm:col-span-2">
+                      <label className="text-sm font-medium text-[#334762]">
+                        Password <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          value={profileForm.password}
+                          onChange={(e) => setProfileField("password", e.target.value)}
+                          placeholder="Create a password"
+                          disabled={isLoading}
+                          className="h-10 border-[#ced9ea] bg-white/90 pr-11"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((current) => !current)}
+                          disabled={isLoading}
+                          className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-[#6d7f99] transition hover:text-[#10233f]"
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                       {fieldErrors.password ? (
                         <p className="text-xs text-red-600">{fieldErrors.password}</p>
                       ) : (
@@ -436,11 +458,11 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
                       )}
                     </div>
 
-                    <div className="pt-4">
+                    <div className="pt-2 sm:col-span-2">
                       <Button
                         type="submit"
                         disabled={isLoading}
-                        className="h-11 min-w-[170px] rounded-md bg-[#0f5fb8] px-7 text-white hover:bg-[#0c4f9a]"
+                        className="h-10 min-w-[170px] rounded-md bg-[#0f5fb8] px-7 text-white shadow-sm hover:bg-[#0c4f9a]"
                       >
                         {isLoading ? "Finishing setup..." : "Finish Setup"}
                       </Button>

@@ -3,8 +3,6 @@ import { Hero } from "@/components/sections/Hero";
 import { SignUp } from "@/components/sections/SignUp";
 import { ContentUpload } from "@/components/sections/ContentUpload";
 import { HowItWorks } from "@/components/sections/HowItWorks";
-import { Improvement } from "@/components/sections/Improvement";
-import { TrialCTA } from "@/components/sections/TrialCTA";
 import { Footer } from "@/components/sections/Footer";
 import type { AnalysisRequest, AnalysisResponse } from "@/services/seoAnalysis";
 import ScoreGauges from "@/components/sections/ScoreGauges";
@@ -12,8 +10,7 @@ import { useAuth } from "@/utils/AuthContext";
 import TabsWithSvg from "@/components/sections/TabsWithSvg";
 import { useRef } from "react";
 import { CreateAccount } from "@/components/sections/CreateAccount";
-import { Pricing } from "@/components/sections/Pricing";
-import { PricingAndFAQ } from "@/components/sections/PricingAndFaq";
+import { GrowthFaqSpotlight } from "@/components/sections/GrowthFaqSpotlight";
 
 
 export default function Index() {
@@ -49,6 +46,14 @@ useEffect(() => {
     }, 100);
   }
 }, [article]);
+
+  useEffect(() => {
+    if (isAuthenticated && isMetricLoading) {
+      setTimeout(() => {
+        uploadRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 120);
+    }
+  }, [isAuthenticated, isMetricLoading]);
   // 🔁 login / register toggle
   const [view, setView] = useState<"login" | "register">("login");
 
@@ -147,23 +152,14 @@ useEffect(() => {
       {/*<Improvement analysisResult={analysisResult} />*/}
       <TabsWithSvg></TabsWithSvg>
       {/*<Pricing></Pricing>*/}
-      <PricingAndFAQ></PricingAndFAQ>
-      <TrialCTA
-  onSignInSuccess={() => {
-    setTimeout(() => {
-      uploadRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
-  }}
-  
-  onCreateAccount={() => {
-    setView("register");
-    setTimeout(() => {
-      authTopRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
-  }}
-
-  
-/>
+      <GrowthFaqSpotlight
+        onCreateAccount={() => {
+          setView("register");
+          setTimeout(() => {
+            authTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 100);
+        }}
+      />
       <Footer />
     </div>
     
