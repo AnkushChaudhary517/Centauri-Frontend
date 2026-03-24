@@ -27,6 +27,27 @@ export interface UpdateProfilePayload {
   password: string;
 }
 
+async function postJsonWithFallback<T>(endpoints: string[], body: unknown): Promise<T> {
+  let lastError: Error | null = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      return await postJson<T>(endpoint, body);
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      lastError = error;
+      if (!/404|not found/i.test(error.message)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError ?? new Error('API request failed');
+}
+
 type AuthApiResponse =
   | AuthSession
   | {
@@ -334,14 +355,7 @@ export const authAPI = {
     });
   },
   updateProfile: async (payload: UpdateProfilePayload) => {
-    try {
-      return await postJson('/auth/updateprofile', payload);
-    } catch (error) {
-      if (error instanceof Error && /404|not found/i.test(error.message)) {
-        return postJson('/auth/update-profile', payload);
-      }
-      throw error;
-    }
+    return postJsonWithFallback(['/auth/updateprofile', '/auth/update-profile'], payload);
   },
   changePassword: async (currentPassword: string, newPassword: string) => {
     return apiCall('/auth/change-password', {
@@ -360,6 +374,12 @@ export const authAPI = {
       method: 'POST',
       body: { email:email, resetToken:resetToken, newPassword:newPassword },
     });
+  },
+  addCredits: async () => {
+    return postJsonWithFallback(
+      ['/auth/add-credits', '/credits/add-credits', '/credits/add', '/auth/credits/add'],
+      { plan: 'regular' }
+    );
   },
   refreshToken: async () => {
     const refreshToken = getRefreshToken();

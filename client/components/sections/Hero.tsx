@@ -8,7 +8,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CircleDollarSign, LogOut, Menu, UserRound } from "lucide-react";
-import type { AuthUser } from "@/utils/AuthApi";
+import { authAPI, type AuthUser } from "@/utils/AuthApi";
+import { useToast } from "@/components/ui/use-toast";
 
 interface HeroProps {
   onLogout?: () => void;
@@ -17,6 +18,7 @@ interface HeroProps {
 }
 
 export function Hero({ onLogout, isSignedIn, user }: HeroProps) {
+  const { toast } = useToast();
   const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
   const displayName = fullName || user?.email || "User";
   const initials = displayName
@@ -25,6 +27,23 @@ export function Hero({ onLogout, isSignedIn, user }: HeroProps) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("");
+
+  const handleAddCredits = async () => {
+    try {
+      await authAPI.addCredits();
+      toast({
+        title: "Success",
+        description: "credits added successfully",
+      });
+    } catch (error) {
+      console.error("Add credits error:", error);
+      toast({
+        title: "Error",
+        description: "Error occured while adding credits",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <section className="relative overflow-hidden text-white">
@@ -77,6 +96,7 @@ export function Hero({ onLogout, isSignedIn, user }: HeroProps) {
                 className="mt-2 rounded-xl px-3 py-3 text-slate-700 focus:bg-slate-50"
                 onSelect={(event) => {
                   event.preventDefault();
+                  void handleAddCredits();
                 }}
               >
                 <CircleDollarSign className="mr-2 h-4 w-4 text-[#2563eb]" />

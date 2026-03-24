@@ -295,12 +295,23 @@ export function ContentUpload({
     <div className="content-upload-section flex min-h-[calc(100vh-96px)] items-start bg-[radial-gradient(circle_at_top_left,#eef5ff_0%,#f8fbff_40%,#ffffff_75%)] py-3 sm:py-4">
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
         {isAnalyzing ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <div className="flex flex-col items-center gap-4">
-              <div className="h-12 w-12 animate-spin rounded-full border-4 border-white border-t-transparent" />
-              <p className="px-4 text-center text-lg font-medium text-white">
-                Centauri is analyzing your content. It could take 3 to 5 minutes. Stay Tight.
-              </p>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 px-4 backdrop-blur-md">
+            <div className="w-full max-w-md rounded-[28px] border border-white/40 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(244,248,255,0.98)_100%)] px-8 py-9 text-center shadow-[0_28px_90px_rgba(15,23,42,0.22)]">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_30%,#dbeafe_0%,#eff6ff_42%,#ffffff_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_16px_40px_rgba(37,99,235,0.18)]">
+                <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-[#bfdbfe] border-t-[#2563eb] border-r-[#1d4ed8]" />
+              </div>
+              <div className="mt-6 space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#2563eb]">
+                  Centauri Analysis
+                </p>
+                <h3 className="text-2xl font-semibold tracking-tight text-slate-900">
+                  Analyzing your content
+                </h3>
+                <p className="text-sm leading-6 text-slate-600 sm:text-base">
+                  This usually takes 3 to 5 minutes. We&apos;re reviewing your draft for SEO,
+                  clarity, authority, and AI discoverability.
+                </p>
+              </div>
             </div>
           </div>
         ) : null}

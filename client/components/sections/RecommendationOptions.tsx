@@ -23,6 +23,10 @@ const IMPROVEMENT_COPY: Record<
     userAttribute: "Authority",
     meaning: "whether the article shows real expertise and confidence on the topic",
   },
+  expertisescore: {
+    userAttribute: "Expertise",
+    meaning: "whether the content reflects practical knowledge and subject understanding",
+  },
   credibilityscore: {
     userAttribute: "Credibility",
     meaning: "whether important claims are supported by trustworthy information",
@@ -55,7 +59,15 @@ const IMPROVEMENT_COPY: Record<
     userAttribute: "Answer Accuracy",
     meaning: "whether the article gives clear, factual, and dependable answers",
   },
+  answerblockdensityscore: {
+    userAttribute: "Answer Accuracy",
+    meaning: "whether the article gives clear, factual, and dependable answers",
+  },
   synthesiscoherencescore: {
+    userAttribute: "Content Cohesion",
+    meaning: "how logically the ideas connect and flow across the article",
+  },
+  claritysynthesisscore: {
     userAttribute: "Content Cohesion",
     meaning: "how logically the ideas connect and flow across the article",
   },

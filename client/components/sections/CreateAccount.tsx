@@ -292,7 +292,7 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
       <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
         <DialogContent
           overlayClassName="bg-slate-950/18 backdrop-blur-md"
-          className="h-[calc(100dvh-24px)] w-[min(96vw,1120px)] max-h-[calc(100dvh-24px)] max-w-[1120px] overflow-hidden border-0 bg-transparent p-0 shadow-none"
+          className="h-[100dvh] w-[100vw] max-h-[100dvh] max-w-none overflow-hidden border-0 bg-transparent p-0 shadow-none sm:h-[calc(100dvh-24px)] sm:w-[min(96vw,1120px)] sm:max-h-[calc(100dvh-24px)] sm:max-w-[1120px]"
           onInteractOutside={(event) => event.preventDefault()}
         >
           <DialogTitle className="sr-only">Complete your account setup</DialogTitle>
@@ -300,46 +300,46 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
             Fill in your personal details to complete account setup.
           </DialogDescription>
 
-          <div className="h-full overflow-hidden rounded-[32px] bg-[#e6eef8] shadow-[0_30px_80px_rgba(15,38,74,0.18)]">
-            <div className="grid h-full grid-cols-1 lg:grid-cols-[250px_minmax(0,1fr)]">
-              <aside className="relative overflow-hidden bg-[linear-gradient(180deg,#0f5fb8_0%,#0a4689_100%)] px-6 py-6 text-white sm:px-8 lg:px-7 lg:py-8">
+          <div className="h-full overflow-hidden rounded-none bg-[#e6eef8] shadow-[0_30px_80px_rgba(15,38,74,0.18)] sm:rounded-[32px]">
+            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[250px_minmax(0,1fr)] lg:grid-rows-1">
+              <aside className="relative overflow-hidden bg-[linear-gradient(180deg,#0f5fb8_0%,#0a4689_100%)] px-4 py-4 text-white sm:px-6 sm:py-5 lg:px-7 lg:py-8">
                 <div className="absolute inset-0 opacity-20">
                   <div className="absolute inset-x-0 bottom-0 h-48 bg-[radial-gradient(circle_at_bottom_left,transparent_0,transparent_38%,rgba(255,255,255,0.25)_39%,transparent_40%),radial-gradient(circle_at_bottom_center,transparent_0,transparent_38%,rgba(255,255,255,0.25)_39%,transparent_40%),radial-gradient(circle_at_bottom_right,transparent_0,transparent_38%,rgba(255,255,255,0.25)_39%,transparent_40%)]" />
                 </div>
 
                 <div className="relative flex h-full flex-col">
-                  <div className="mb-8 flex items-center gap-3 text-sm font-semibold lg:mb-10">
+                  <div className="mb-4 flex items-center gap-3 text-sm font-semibold sm:mb-5 lg:mb-10">
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15">
                       <Users2 className="h-4 w-4" />
                     </div>
                     <span>Centauri</span>
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 lg:gap-6">
+                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 lg:gap-6">
                     {sidebarSteps.map((step, index) => {
                       const Icon = step.icon;
 
                       return (
-                        <div key={step.title} className="flex items-start gap-3">
-                          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10">
+                        <div key={step.title} className="flex items-center gap-3 lg:items-start">
+                          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10">
                             {index === 0 ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
                           </div>
-                          <div>
-                            <p className="text-sm font-semibold">{step.title}</p>
-                            <p className="mt-1 text-xs text-white/70">{step.description}</p>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold leading-5">{step.title}</p>
+                            <p className="mt-1 hidden text-xs text-white/70 sm:block lg:block">{step.description}</p>
                           </div>
                         </div>
                       );
                     })}
                   </div>
 
-                  <div className="mt-auto hidden lg:block">
+                  <div className="mt-4 hidden lg:block lg:mt-auto">
                     <p className="text-xs text-white/65">All rights reserved @Centauri</p>
                   </div>
                 </div>
               </aside>
 
-              <section className="relative min-w-0 overflow-hidden bg-[linear-gradient(135deg,#ffffff_0%,#f2f7ff_55%,#edf4ff_100%)] px-5 py-5 sm:px-7 sm:py-6 lg:px-10 lg:py-8">
+              <section className="relative min-w-0 overflow-hidden bg-[linear-gradient(135deg,#ffffff_0%,#f2f7ff_55%,#edf4ff_100%)] px-4 py-4 sm:px-7 sm:py-6 lg:px-10 lg:py-8">
                 <div className="pointer-events-none absolute inset-y-8 right-0 hidden w-16 overflow-hidden xl:block">
                   <div className="absolute right-6 top-4 h-24 w-24 rounded-full border border-[#d8e4f3]" />
                   <div className="absolute right-0 top-36 h-24 w-24 rounded-full border border-[#d8e4f3]" />
@@ -347,16 +347,16 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
                   <div className="absolute right-0 bottom-0 h-24 w-24 rounded-full border border-[#d8e4f3]" />
                 </div>
 
-                <div className="mx-auto flex h-full max-w-2xl flex-col justify-center pr-0 xl:pr-6">
-                  <p className="text-sm font-semibold text-[#8ea2bf]">Step 1/3</p>
-                  <h3 className="mt-2 text-2xl font-bold text-[#10233f] sm:text-3xl">Basic Info</h3>
-                  <p className="mt-2 max-w-md text-sm leading-6 text-[#6d7f99]">
+                <div className="mx-auto flex h-full max-w-2xl flex-col justify-start pr-0 lg:justify-center xl:pr-6">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8ea2bf] sm:text-sm sm:tracking-normal">Step 1/3</p>
+                  <h3 className="mt-1 text-xl font-bold text-[#10233f] sm:mt-2 sm:text-3xl">Basic Info</h3>
+                  <p className="mt-2 max-w-md text-sm leading-5 text-[#6d7f99] sm:leading-6">
                     Tell us a bit about yourself to get started with your new Centauri account.
                   </p>
-                  <div className="mt-4 h-px bg-[#dfe8f4]" />
+                  <div className="mt-3 h-px bg-[#dfe8f4] sm:mt-4" />
 
-                  <form onSubmit={handleFinishSetup} className="mt-5 grid flex-1 content-start gap-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
+                  <form onSubmit={handleFinishSetup} className="mt-4 grid flex-1 content-start gap-3 sm:mt-5 sm:gap-4">
+                    <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-[#334762]">
                           First name <span className="text-red-500">*</span>
@@ -366,7 +366,7 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
                           onChange={(e) => setProfileField("firstName", e.target.value)}
                           placeholder="John"
                           disabled={isLoading}
-                          className="h-10 border-[#ced9ea] bg-white/90"
+                          className="h-10 border-[#ced9ea] bg-white/90 text-sm"
                         />
                         {fieldErrors.firstName ? (
                           <p className="text-xs text-red-600">{fieldErrors.firstName}</p>
@@ -382,7 +382,7 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
                           onChange={(e) => setProfileField("lastName", e.target.value)}
                           placeholder="Doe"
                           disabled={isLoading}
-                          className="h-10 border-[#ced9ea] bg-white/90"
+                          className="h-10 border-[#ced9ea] bg-white/90 text-sm"
                         />
                         {fieldErrors.lastName ? (
                           <p className="text-xs text-red-600">{fieldErrors.lastName}</p>
@@ -397,7 +397,7 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
                         onChange={(e) => setProfileField("company", e.target.value)}
                         placeholder="Your company name"
                         disabled={isLoading}
-                        className="h-10 border-[#ced9ea] bg-white/90"
+                        className="h-10 border-[#ced9ea] bg-white/90 text-sm"
                       />
                     </div>
 
@@ -408,7 +408,7 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
                       <Input
                         value={email}
                         disabled
-                        className="h-10 border-[#ced9ea] bg-[#f6f9ff] text-[#6d7f99]"
+                        className="h-10 border-[#ced9ea] bg-[#f6f9ff] text-sm text-[#6d7f99]"
                       />
                     </div>
 
@@ -419,7 +419,7 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
                         onChange={(e) => setProfileField("contactNumber", e.target.value)}
                         placeholder="+91 9876543210"
                         disabled={isLoading}
-                        className="h-10 border-[#ced9ea] bg-white/90"
+                        className="h-10 border-[#ced9ea] bg-white/90 text-sm"
                       />
                       {fieldErrors.contactNumber ? (
                         <p className="text-xs text-red-600">{fieldErrors.contactNumber}</p>
@@ -437,7 +437,7 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
                           onChange={(e) => setProfileField("password", e.target.value)}
                           placeholder="Create a password"
                           disabled={isLoading}
-                          className="h-10 border-[#ced9ea] bg-white/90 pr-11"
+                          className="h-10 border-[#ced9ea] bg-white/90 pr-11 text-sm"
                         />
                         <button
                           type="button"
@@ -458,11 +458,11 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
                       )}
                     </div>
 
-                    <div className="pt-2 sm:col-span-2">
+                    <div className="pt-1 sm:col-span-2 sm:pt-2">
                       <Button
                         type="submit"
                         disabled={isLoading}
-                        className="h-10 min-w-[170px] rounded-md bg-[#0f5fb8] px-7 text-white shadow-sm hover:bg-[#0c4f9a]"
+                        className="h-11 w-full rounded-md bg-[#0f5fb8] px-7 text-white shadow-sm hover:bg-[#0c4f9a] sm:h-10 sm:w-auto sm:min-w-[170px]"
                       >
                         {isLoading ? "Finishing setup..." : "Finish Setup"}
                       </Button>

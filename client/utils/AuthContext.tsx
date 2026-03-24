@@ -36,7 +36,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    setUser(getStoredUser());
+    const restoredUser = getStoredUser() ?? getUserFromToken(token);
+    setStoredUser(restoredUser);
+    setUser(restoredUser);
     setIsAuthenticated(true);
   }, []);
 
