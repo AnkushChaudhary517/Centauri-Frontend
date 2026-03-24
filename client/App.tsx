@@ -4,13 +4,14 @@ import { createRoot } from "react-dom/client";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useNavigate, useSearchParams, HashRouter } from "react-router-dom";
+import { Routes, Route, useNavigate, useSearchParams, HashRouter } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { Toaster } from "./components/ui/toaster";
 import { AuthProvider, useAuth } from "./utils/AuthContext";
 import { useEffect } from "react";
 import { authAPI } from "./utils/AuthApi";
+import PricingPage from "./pages/Pricing";
 
 const queryClient = new QueryClient();
 
@@ -23,11 +24,11 @@ const App = () => (
       <OAuthRedirectHandler>
       <HashRouter>
         <Routes>
-          
           <Route path="/" element={<Index />} />
+          <Route path="/pricing" element={<PricingPage />} />
           <Route path="/auth/callback" element={<OAuthCallback />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>
       </OAuthRedirectHandler>

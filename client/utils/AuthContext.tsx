@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
+  authAPI,
   login,
   getToken,
   setTokens,
@@ -40,12 +41,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setStoredUser(restoredUser);
     setUser(restoredUser);
     setIsAuthenticated(true);
+    void refreshAccountData();
   }, []);
+
+  const refreshAccountData = async () => {
+    try {
+      await Promise.all([
+        authAPI.refreshCurrentSubscription(),
+        authAPI.refreshRemainingCredits(),
+      ]);
+    } catch (error) {
+      console.error("Failed to refresh account data:", error);
+    }
+  };
 
   const handleLogin = async (email: string, password: string) => {
     const authSession = await login(email, password);
     setUser(authSession.user ?? null);
     setIsAuthenticated(true);
+    void refreshAccountData();
     return authSession;
   };
 
@@ -61,6 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setStoredUser(nextUser);
     setUser(nextUser);
     setIsAuthenticated(true);
+    void refreshAccountData();
   };
 
   return (

@@ -8,6 +8,7 @@ type EnvironmentUrls = {
 
 const API_ENVIRONMENT: ApiEnvironment = "localhost";
 //const API_ENVIRONMENT: ApiEnvironment = "production";
+const USE_MOCK_API = true;
 
 const ENVIRONMENT_URLS: Record<ApiEnvironment, EnvironmentUrls> = {
   localhost: {
@@ -24,5 +25,6 @@ const ENVIRONMENT_URLS: Record<ApiEnvironment, EnvironmentUrls> = {
 
 export const environment = {
   apiEnvironment: API_ENVIRONMENT,
+  useMockApi: USE_MOCK_API,
   urls: ENVIRONMENT_URLS[API_ENVIRONMENT],
 };

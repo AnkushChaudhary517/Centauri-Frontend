@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from './ApiConfig';
+import { handleMockApiRequest, isMockApiEnabled } from '@/services/mockApi';
 const API_BASE_URL = getApiBaseUrl();
 
 export interface AuthTokens {
@@ -13,6 +14,50 @@ export interface AuthUser {
   lastName?: string;
   profileImage?: string;
 }
+
+export interface SubscriptionPlanInput {
+  planId: string;
+  name: string;
+  monthlyPrice: number;
+  articleAnalysesPerMonth: number;
+  billingCycle: "monthly";
+}
+
+export interface CurrentSubscription {
+  planId: string;
+  name: string;
+  priceLabel: string;
+  monthlyPrice?: number;
+  articleAnalysesPerMonth: number;
+  billingCycle: "monthly";
+  status?: string;
+  renewalDate?: string | null;
+}
+
+export interface RemainingCredits {
+  available: number;
+  used?: number;
+  total?: number;
+  expiresAt?: string | null;
+}
+
+export const DEFAULT_TRIAL_SUBSCRIPTION: CurrentSubscription = {
+  planId: "trial-14-day",
+  name: "Free Trial",
+  priceLabel: "5 credits for 14 days",
+  monthlyPrice: 0,
+  articleAnalysesPerMonth: 5,
+  billingCycle: "monthly",
+  status: "trial",
+  renewalDate: null,
+};
+
+export const DEFAULT_TRIAL_CREDITS: RemainingCredits = {
+  available: 5,
+  used: 0,
+  total: 5,
+  expiresAt: null,
+};
 
 export interface AuthSession extends AuthTokens {
   user?: AuthUser | null;
@@ -33,6 +78,36 @@ async function postJsonWithFallback<T>(endpoints: string[], body: unknown): Prom
   for (const endpoint of endpoints) {
     try {
       return await postJson<T>(endpoint, body);
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+
+      lastError = error;
+      if (!/404|not found/i.test(error.message)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError ?? new Error('API request failed');
+}
+
+async function requestJsonWithFallback<T>(
+  endpoints: string[],
+  options: {
+    method?: string;
+    body?: unknown;
+  } = {},
+): Promise<T> {
+  let lastError: Error | null = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      return await apiCall<T>(endpoint, {
+        method: options.method ?? 'GET',
+        body: options.body,
+      });
     } catch (error) {
       if (!(error instanceof Error)) {
         throw error;
@@ -74,6 +149,30 @@ type AuthApiResponse =
       access_token?: string;
       refresh_token?: string;
     };
+
+type SubscriptionApiResponse = {
+  success?: boolean;
+  message?: string;
+  data?: Record<string, any> | null;
+  subscription?: Record<string, any> | null;
+  currentSubscription?: Record<string, any> | null;
+  plan?: Record<string, any> | null;
+  [key: string]: unknown;
+};
+
+type CreditsApiResponse = {
+  success?: boolean;
+  message?: string;
+  data?: Record<string, any> | null;
+  credits?: Record<string, any> | null;
+  remainingCredits?: Record<string, any> | null;
+  [key: string]: unknown;
+};
+
+const CURRENT_SUBSCRIPTION_STORAGE_KEY = 'currentSubscription';
+const REMAINING_CREDITS_STORAGE_KEY = 'remainingCredits';
+const SUBSCRIPTION_UPDATED_EVENT = 'centauri:subscription-updated';
+const CREDITS_UPDATED_EVENT = 'centauri:credits-updated';
 
 function decodeJwtPayload(token: string): Record<string, any> | null {
   try {
@@ -225,6 +324,52 @@ export function getStoredUser(): AuthUser | null {
   }
 }
 
+export function setStoredSubscription(subscription?: CurrentSubscription | null): void {
+  if (!subscription) {
+    localStorage.removeItem(CURRENT_SUBSCRIPTION_STORAGE_KEY);
+    window.dispatchEvent(new CustomEvent(SUBSCRIPTION_UPDATED_EVENT));
+    return;
+  }
+
+  localStorage.setItem(CURRENT_SUBSCRIPTION_STORAGE_KEY, JSON.stringify(subscription));
+  window.dispatchEvent(new CustomEvent(SUBSCRIPTION_UPDATED_EVENT, { detail: subscription }));
+}
+
+export function getStoredSubscription(): CurrentSubscription | null {
+  const raw = localStorage.getItem(CURRENT_SUBSCRIPTION_STORAGE_KEY);
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw) as CurrentSubscription;
+  } catch {
+    localStorage.removeItem(CURRENT_SUBSCRIPTION_STORAGE_KEY);
+    return null;
+  }
+}
+
+export function setStoredRemainingCredits(credits?: RemainingCredits | null): void {
+  if (!credits) {
+    localStorage.removeItem(REMAINING_CREDITS_STORAGE_KEY);
+    window.dispatchEvent(new CustomEvent(CREDITS_UPDATED_EVENT));
+    return;
+  }
+
+  localStorage.setItem(REMAINING_CREDITS_STORAGE_KEY, JSON.stringify(credits));
+  window.dispatchEvent(new CustomEvent(CREDITS_UPDATED_EVENT, { detail: credits }));
+}
+
+export function getStoredRemainingCredits(): RemainingCredits | null {
+  const raw = localStorage.getItem(REMAINING_CREDITS_STORAGE_KEY);
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw) as RemainingCredits;
+  } catch {
+    localStorage.removeItem(REMAINING_CREDITS_STORAGE_KEY);
+    return null;
+  }
+}
+
 export const getToken = () => {
   const token = localStorage.getItem('token') || localStorage.getItem('authToken');
   if (token && !isTokenValid(token)) {
@@ -240,7 +385,86 @@ export const clearTokens = () => {
   localStorage.removeItem('authToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('authUser');
+  localStorage.removeItem(CURRENT_SUBSCRIPTION_STORAGE_KEY);
+  localStorage.removeItem(REMAINING_CREDITS_STORAGE_KEY);
 };
+
+function normalizeCurrentSubscription(
+  payload: SubscriptionApiResponse | Record<string, any> | null | undefined,
+  fallbackPlan?: SubscriptionPlanInput,
+): CurrentSubscription | null {
+  const source =
+    (payload as SubscriptionApiResponse | undefined)?.currentSubscription ||
+    (payload as SubscriptionApiResponse | undefined)?.subscription ||
+    (payload as SubscriptionApiResponse | undefined)?.plan ||
+    (payload as SubscriptionApiResponse | undefined)?.data ||
+    payload;
+
+  if (!source && !fallbackPlan) {
+    return null;
+  }
+
+  const name = source?.name || source?.planName || source?.title || fallbackPlan?.name;
+  const planId = source?.planId || source?.id || source?.code || fallbackPlan?.planId;
+  const billingCycle = source?.billingCycle || source?.interval || fallbackPlan?.billingCycle || 'monthly';
+  const articleAnalysesPerMonth = Number(
+    source?.articleAnalysesPerMonth ||
+      source?.articlesPerMonth ||
+      source?.analysisLimit ||
+      source?.credits ||
+      fallbackPlan?.articleAnalysesPerMonth ||
+      0,
+  );
+  const monthlyPrice = Number(
+    source?.monthlyPrice || source?.amount || source?.price || fallbackPlan?.monthlyPrice || 0,
+  );
+
+  if (!name || !planId || !articleAnalysesPerMonth) {
+    return null;
+  }
+
+  return {
+    planId: String(planId),
+    name: String(name),
+    monthlyPrice,
+    priceLabel: monthlyPrice ? `$${monthlyPrice} / month` : source?.priceLabel || '$0 / month',
+    articleAnalysesPerMonth,
+    billingCycle: billingCycle === 'yearly' ? 'monthly' : 'monthly',
+    status: source?.status || source?.subscriptionStatus || 'active',
+    renewalDate: source?.renewalDate || source?.nextBillingDate || null,
+  };
+}
+
+function normalizeRemainingCredits(
+  payload: CreditsApiResponse | Record<string, any> | null | undefined,
+  fallbackCredits?: RemainingCredits,
+): RemainingCredits | null {
+  const source =
+    (payload as CreditsApiResponse | undefined)?.remainingCredits ||
+    (payload as CreditsApiResponse | undefined)?.credits ||
+    (payload as CreditsApiResponse | undefined)?.data ||
+    payload;
+
+  if (!source && !fallbackCredits) {
+    return null;
+  }
+
+  const available = Number(
+    source?.available ||
+      source?.remaining ||
+      source?.balance ||
+      source?.remainingCredits ||
+      fallbackCredits?.available ||
+      0,
+  );
+
+  return {
+    available,
+    used: Number(source?.used || fallbackCredits?.used || 0),
+    total: Number(source?.total || source?.allocated || fallbackCredits?.total || available),
+    expiresAt: source?.expiresAt || source?.expiryDate || fallbackCredits?.expiresAt || null,
+  };
+}
 
 export async function apiCall<T>(
   endpoint: string,
@@ -270,6 +494,10 @@ export async function apiCall<T>(
   }
 
   const url = `${API_BASE_URL}${endpoint}`;
+
+  if (isMockApiEnabled()) {
+    return handleMockApiRequest<T>(endpoint, { method, body });
+  }
 
   const response = await fetch(url, {
     method,
@@ -316,6 +544,13 @@ export const authAPI = {
     return session;
   },
   initiateGoogleSignIn: () => {
+    if (isMockApiEnabled()) {
+      const session = buildMockSessionFromCurrentUser();
+      setTokens(session.token, session.refreshToken);
+      setStoredUser(session.user);
+      window.location.hash = "#/";
+      return;
+    }
     window.location.href = `${API_BASE_URL}/auth/google`;
   },
   initiateFacebookSignIn: () => {
@@ -381,6 +616,116 @@ export const authAPI = {
       { plan: 'regular' }
     );
   },
+  getCurrentSubscription: async () => {
+    const stored = getStoredSubscription();
+    if (stored) {
+      return stored;
+    }
+    return authAPI.refreshCurrentSubscription();
+  },
+  refreshCurrentSubscription: async () => {
+    try {
+      const response = await requestJsonWithFallback<SubscriptionApiResponse>(
+        [
+          '/auth/subscription/current',
+          '/subscription/current',
+          '/billing/current-subscription',
+          '/auth/current-subscription',
+        ],
+        { method: 'GET' },
+      );
+
+      const normalized = normalizeCurrentSubscription(response);
+      if (normalized) {
+        setStoredSubscription(normalized);
+      }
+
+      return normalized ?? getStoredSubscription();
+    } catch (error) {
+      const stored = getStoredSubscription();
+      if (stored) {
+        return stored;
+      }
+
+      throw error;
+    }
+  },
+  getRemainingCredits: async () => {
+    const stored = getStoredRemainingCredits();
+    if (stored) {
+      return stored;
+    }
+    return authAPI.refreshRemainingCredits();
+  },
+  refreshRemainingCredits: async () => {
+    try {
+      const response = await requestJsonWithFallback<CreditsApiResponse>(
+        [
+          '/auth/credits/remaining',
+          '/credits/remaining',
+          '/auth/remaining-credits',
+          '/subscription/credits/remaining',
+        ],
+        { method: 'GET' },
+      );
+
+      const normalized = normalizeRemainingCredits(response);
+      if (normalized) {
+        setStoredRemainingCredits(normalized);
+      }
+
+      return normalized ?? getStoredRemainingCredits();
+    } catch (error) {
+      const stored = getStoredRemainingCredits();
+      if (stored) {
+        return stored;
+      }
+
+      throw error;
+    }
+  },
+  subscribeToPlan: async (plan: SubscriptionPlanInput) => {
+    const response = await postJsonWithFallback<SubscriptionApiResponse>(
+      [
+        '/auth/subscription/select',
+        '/subscription/select',
+        '/billing/subscribe',
+        '/auth/add-credits',
+        '/credits/add-credits',
+      ],
+      {
+        planId: plan.planId,
+        planName: plan.name,
+        plan: plan.planId,
+        billingCycle: plan.billingCycle,
+        monthlyPrice: plan.monthlyPrice,
+        articleAnalysesPerMonth: plan.articleAnalysesPerMonth,
+      },
+    );
+
+    const normalized = normalizeCurrentSubscription(response, plan) ?? {
+      planId: plan.planId,
+      name: plan.name,
+      monthlyPrice: plan.monthlyPrice,
+      priceLabel: `$${plan.monthlyPrice} / month`,
+      articleAnalysesPerMonth: plan.articleAnalysesPerMonth,
+      billingCycle: plan.billingCycle,
+      status: 'active',
+      renewalDate: null,
+    };
+
+    setStoredSubscription(normalized);
+    setStoredRemainingCredits({
+      available: plan.articleAnalysesPerMonth,
+      used: 0,
+      total: plan.articleAnalysesPerMonth,
+      expiresAt: null,
+    });
+    return {
+      message: response?.message || `${plan.name} activated successfully.`,
+      subscription: normalized,
+    };
+  },
   refreshToken: async () => {
     const refreshToken = getRefreshToken();
     if (!refreshToken) throw new Error('No refresh token');
@@ -398,6 +743,20 @@ export const authAPI = {
     clearTokens();
   },
 };
+
+function buildMockSessionFromCurrentUser(): AuthSession {
+  return {
+    token: "mock-jwt-token",
+    refreshToken: "mock-refresh-token",
+    user: getStoredUser() ?? {
+      userId: "mock-user-1",
+      email: "demo@getcentauri.com",
+      firstName: "Centauri",
+      lastName: "Demo",
+      profileImage: "",
+    },
+  };
+}
 
 export async function login(
   email: string,

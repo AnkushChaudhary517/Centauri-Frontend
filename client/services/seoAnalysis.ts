@@ -69,6 +69,7 @@ export interface RecommendationItem{
   }
   
 // API Configuration
+import { getMockAnalysisResponse, getMockRecommendationsResponse, isMockApiEnabled } from '@/services/mockApi';
 import { getSeoAnalyzeUrl, getRecommendationsUrl } from '@/utils/ApiConfig';
 import { getToken } from '@/utils/AuthApi';
   // Parse file content to extract metadata
@@ -120,6 +121,10 @@ import { getToken } from '@/utils/AuthApi';
   
   export async function analyzeSEO(request: AnalysisRequest): Promise<AnalysisResponse> {
     try {
+      if (isMockApiEnabled()) {
+        return getMockAnalysisResponse(request);
+      }
+
       const url = getSeoAnalyzeUrl();
       const headers: Record<string, string> = {
         "Content-Type": "application/json"
@@ -151,6 +156,10 @@ import { getToken } from '@/utils/AuthApi';
 
   export async function analyzeSEOWithPolling(request: AnalysisRequest): Promise<AnalysisResponse> {
     try {
+      if (isMockApiEnabled()) {
+        return getMockAnalysisResponse(request);
+      }
+
       const url = getSeoAnalyzeUrl();
 
       // Poll for completion
@@ -195,6 +204,35 @@ import { getToken } from '@/utils/AuthApi';
       console.error("SEO analysis with polling error:", error);
       throw error;
     }
+  }
+
+  export async function getRecommendations(request: AnalysisRequest): Promise<RecommendationResponse> {
+    if (isMockApiEnabled()) {
+      return getMockRecommendationsResponse();
+    }
+
+    const url = getRecommendationsUrl();
+    const token = getToken();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      RequestId: localStorage.getItem("RequestId") ?? "",
+    };
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
   }
   
   export function buildAnalysisRequest(

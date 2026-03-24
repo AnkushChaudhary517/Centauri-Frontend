@@ -16,9 +16,8 @@ import type {
   AnalysisResponse,
   RecommendationResponse,
 } from "@/services/seoAnalysis";
+import { getRecommendations } from "@/services/seoAnalysis";
 import { toast } from "@/components/ui/use-toast";
-import { getRecommendationsUrl } from "./ApiConfig";
-import { getToken } from "./AuthApi";
 
 /* ================= POLLING CONFIG ================= */
 const MAX_ATTEMPTS = 10;
@@ -28,28 +27,7 @@ const POLL_INTERVAL = 10_000; // 10 sec
 export async function GetRecommendations(
   request: AnalysisRequest
 ): Promise<RecommendationResponse> {
-  const url = getRecommendationsUrl();
-  const token = getToken();
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    RequestId: localStorage.getItem("RequestId") ?? "",
-  };
-
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(request),
-  });
-
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
-  }
-
-  return response.json();
+  return getRecommendations(request);
 }
 
 /* ================= POLLING ================= */

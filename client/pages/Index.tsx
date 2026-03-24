@@ -1,92 +1,67 @@
-import { useEffect, useState } from "react";
-import { Hero } from "@/components/sections/Hero";
-import { SignUp } from "@/components/sections/SignUp";
+import { useEffect, useRef, useState } from "react";
+import { AuthDialog } from "@/components/sections/AuthDialog";
 import { ContentUpload } from "@/components/sections/ContentUpload";
-import { HowItWorks } from "@/components/sections/HowItWorks";
 import { Footer } from "@/components/sections/Footer";
-import type { AnalysisRequest, AnalysisResponse } from "@/services/seoAnalysis";
-import ScoreGauges from "@/components/sections/ScoreGauges";
-import { useAuth } from "@/utils/AuthContext";
-import TabsWithSvg from "@/components/sections/TabsWithSvg";
-import { useRef } from "react";
-import { CreateAccount } from "@/components/sections/CreateAccount";
 import { GrowthFaqSpotlight } from "@/components/sections/GrowthFaqSpotlight";
-
+import { Header } from "@/components/sections/Header";
+import { Hero } from "@/components/sections/Hero";
+import { HowItWorks } from "@/components/sections/HowItWorks";
+import ScoreGauges from "@/components/sections/ScoreGauges";
+import TabsWithSvg from "@/components/sections/TabsWithSvg";
+import type { AnalysisRequest, AnalysisResponse } from "@/services/seoAnalysis";
+import { authAPI } from "@/utils/AuthApi";
+import { useAuth } from "@/utils/AuthContext";
 
 export default function Index() {
-  const [analysisResult, setAnalysisResult] =
-    useState<AnalysisResponse | null>(null);
-    const [analysisRequest, setAnalysisRequest] =
-    useState<AnalysisRequest | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
+  const [analysisRequest, setAnalysisRequest] = useState<AnalysisRequest | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMetricLoading, setIsMetricLoading] = useState(true);
-  const [primaryKeyword, setPrimaryKeyword] = useState<string>("");
-  const [content, setContent] = useState<string>("");
-  const [originalContent, setOriginalContent] = useState<string>("");
+  const [primaryKeyword, setPrimaryKeyword] = useState("");
+  const [content, setContent] = useState("");
+  const [originalContent, setOriginalContent] = useState("");
+  const [article, setArticle] = useState({ content: "", keyword: "" });
+  const [view, setView] = useState<"login" | "register">("login");
+  const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
+
   const scoreRef = useRef<HTMLDivElement | null>(null);
-  const [article, setArticle] = useState({ content: "", keyword: "" })
+  const uploadRef = useRef<HTMLDivElement | null>(null);
 
   const { isAuthenticated, logout, user } = useAuth();
-  const uploadRef = useRef<HTMLDivElement | null>(null);
-const authTopRef = useRef<HTMLDivElement | null>(null);
-const handleSave = (newData: { updatedContent: string; keyword: string }) => {
-  setArticle({
-    content: newData.updatedContent,
-    keyword: newData.keyword // Keyword safely updated
-  });
-};
 
-// When editor saves, show the ContentUpload area with updated article
-useEffect(() => {
-  if (article.content) {
-    setIsMetricLoading(true);
-    // give React a moment to render then scroll
-    setTimeout(() => {
-      uploadRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
-  }
-}, [article]);
+  const openLoginDialog = () => {
+    setView("login");
+    setIsAuthDialogOpen(true);
+  };
+
+  const handleSave = (newData: { updatedContent: string; keyword: string }) => {
+    setArticle({
+      content: newData.updatedContent,
+      keyword: newData.keyword,
+    });
+  };
 
   useEffect(() => {
-    if (isAuthenticated && isMetricLoading) {
+    if (article.content) {
+      setIsMetricLoading(true);
       setTimeout(() => {
         uploadRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 120);
+      }, 100);
+    }
+  }, [article]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      setIsAuthDialogOpen(false);
+      setView("login");
+
+      if (isMetricLoading) {
+        setTimeout(() => {
+          uploadRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 120);
+      }
     }
   }, [isAuthenticated, isMetricLoading]);
-  // 🔁 login / register toggle
-  const [view, setView] = useState<"login" | "register">("login");
-
-  const handleLogout = async () => {
-    setAnalysisResult(null);
-    await logout();
-    setView("login");
-  };
-
-  const handleAnalysisComplete = (
-    primaryKeyword: string,
-    content: string,
-    result: AnalysisResponse,
-    originalContent:string,
-    analysisRequest:AnalysisRequest
-  ) => {
-    setAnalysisResult(result);
-    setIsLoading(false);
-    setPrimaryKeyword(primaryKeyword);
-    setIsMetricLoading(false);
-    setContent(content ?? "");
-    setOriginalContent(originalContent??"");
-    setAnalysisRequest(analysisRequest)
-  };
-
-  const handleAnalysisError = () => {
-    setIsLoading(false);
-  };
-
-  const handleMetricLoading = () => {
-    setIsLoading(true);
-    setIsMetricLoading(true);
-  };
 
   useEffect(() => {
     if (analysisResult && !isLoading) {
@@ -99,69 +74,116 @@ useEffect(() => {
     }
   }, [analysisResult, isLoading]);
 
+  const handleLogout = async () => {
+    setAnalysisResult(null);
+    setAnalysisRequest(null);
+    setIsLoading(false);
+    setIsMetricLoading(true);
+    setPrimaryKeyword("");
+    setContent("");
+    setOriginalContent("");
+    setArticle({ content: "", keyword: "" });
+    await logout();
+    setView("login");
+  };
+
+  const handleAnalysisComplete = (
+    nextPrimaryKeyword: string,
+    nextContent: string,
+    result: AnalysisResponse,
+    nextOriginalContent: string,
+    nextAnalysisRequest: AnalysisRequest,
+  ) => {
+    setAnalysisResult(result);
+    setIsLoading(false);
+    setPrimaryKeyword(nextPrimaryKeyword);
+    setIsMetricLoading(false);
+    setContent(nextContent ?? "");
+    setOriginalContent(nextOriginalContent ?? "");
+    setAnalysisRequest(nextAnalysisRequest);
+    void authAPI.refreshRemainingCredits().catch((error) => {
+      console.error("Remaining credits refresh failed:", error);
+    });
+  };
+
+  const handleAnalysisError = () => {
+    setIsLoading(false);
+  };
+
+  const handleMetricLoading = () => {
+    setIsLoading(true);
+    setIsMetricLoading(true);
+  };
+
   return (
     <div className="min-h-screen bg-white">
-      <Hero onLogout={handleLogout} isSignedIn={isAuthenticated} user={user} />
-
-<div ref={authTopRef}>
- {/* 🔐 AUTH SECTION */}
- {!isAuthenticated ? (
-        view === "login" ? (
-          <SignUp
-            onSignInSuccess={() => setView("login")}
-            onCreateAccount={() => setView("register")}
-          />
-        ) : (
-          <CreateAccount onBackToLogin={() => setView("login")} />
-        )
-      ) : (
-        isMetricLoading && (
-          <div ref={uploadRef}>
-            <ContentUpload
-            onAnalysisStart={() => setIsLoading(true)}
-            onAnalysisComplete={handleAnalysisComplete}
-            onAnalysisError={handleAnalysisError}
-            initialContent={article.content}
-            initialKeyword = {article.keyword}
-          />
-          </div>
-          
-        )
-      )}
-</div>
-     
-
-      {/* 📊 RESULTS */}
-      {!isLoading && !isMetricLoading && (
-        <div ref={scoreRef}>
-          <ScoreGauges
-            handleMetricLoading={handleMetricLoading}
-            analysisResult={analysisResult}
-            isLoading={isLoading}
-            primaryKeyword={primaryKeyword}
-            content={content}
-            originalContent={originalContent}
-            analysisRequest = {analysisRequest}
-            onEditorSave={handleSave}
-          />
-        </div>
-      )}
-
-      {/* 📄 STATIC SECTIONS */}
-      <HowItWorks />
-      {/*<Improvement analysisResult={analysisResult} />*/}
-      <TabsWithSvg></TabsWithSvg>
-      {/*<Pricing></Pricing>*/}
-      <GrowthFaqSpotlight
-        onCreateAccount={() => {
-          setView("register");
-          setTimeout(() => {
-            authTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }, 100);
-        }}
+      <Header
+        isSignedIn={isAuthenticated}
+        user={user}
+        onLoginClick={openLoginDialog}
+        onLogout={handleLogout}
       />
-      <Footer />
+
+      <AuthDialog
+        open={isAuthDialogOpen}
+        onOpenChange={setIsAuthDialogOpen}
+        view={view}
+        onViewChange={setView}
+      />
+
+      {!isAuthenticated ? (
+        <>
+          <Hero onLoginClick={openLoginDialog} />
+          <HowItWorks />
+          <TabsWithSvg />
+          <GrowthFaqSpotlight
+            onCreateAccount={() => {
+              setView("register");
+              setIsAuthDialogOpen(true);
+            }}
+          />
+          <Footer />
+        </>
+      ) : (
+        <main className="min-h-screen bg-[linear-gradient(180deg,#0f172a_0%,#153a72_20%,#edf4ff_20.1%,#ffffff_100%)] pt-24">
+          {isMetricLoading ? (
+            <div ref={uploadRef}>
+              <ContentUpload
+                onAnalysisStart={() => setIsLoading(true)}
+                onAnalysisComplete={handleAnalysisComplete}
+                onAnalysisError={handleAnalysisError}
+                initialContent={article.content}
+                initialKeyword={article.keyword}
+              />
+            </div>
+          ) : null}
+
+          {!isLoading && !isMetricLoading ? (
+            <div ref={scoreRef}>
+              <ScoreGauges
+                handleMetricLoading={handleMetricLoading}
+                analysisResult={analysisResult}
+                isLoading={isLoading}
+                primaryKeyword={primaryKeyword}
+                content={content}
+                originalContent={originalContent}
+                analysisRequest={analysisRequest}
+                onEditorSave={handleSave}
+              />
+            </div>
+          ) : null}
+
+          <HowItWorks />
+          <TabsWithSvg />
+          <GrowthFaqSpotlight
+            onCreateAccount={() => {
+              setView("register");
+              setIsAuthDialogOpen(true);
+            }}
+          />
+          <Footer />
+        </main>
+      )}
     </div>
-    
   );
 }

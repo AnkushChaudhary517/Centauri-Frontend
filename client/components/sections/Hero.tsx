@@ -1,134 +1,14 @@
-import { Button } from "../ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { CircleDollarSign, LogOut, Menu, UserRound } from "lucide-react";
-import { authAPI, type AuthUser } from "@/utils/AuthApi";
-import { useToast } from "@/components/ui/use-toast";
-
 interface HeroProps {
-  onLogout?: () => void;
-  isSignedIn: boolean;
-  user?: AuthUser | null;
+  onLoginClick?: () => void;
 }
 
-export function Hero({ onLogout, isSignedIn, user }: HeroProps) {
-  const { toast } = useToast();
-  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
-  const displayName = fullName || user?.email || "User";
-  const initials = displayName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-
-  const handleAddCredits = async () => {
-    try {
-      await authAPI.addCredits();
-      toast({
-        title: "Success",
-        description: "credits added successfully",
-      });
-    } catch (error) {
-      console.error("Add credits error:", error);
-      toast({
-        title: "Error",
-        description: "Error occured while adding credits",
-        variant: "destructive",
-      });
-    }
-  };
-
+export function Hero({ onLoginClick }: HeroProps) {
   return (
     <section className="relative overflow-hidden text-white">
       <div
         className="absolute inset-0 bg-no-repeat bg-cover bg-center"
         style={{ backgroundImage: "url(/assets/shape.png)" }}
       />
-
-      {isSignedIn ? (
-        <div className="absolute right-6 top-6 z-20">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="h-12 w-12 rounded-full border-white/20 bg-white/95 p-0 text-slate-900 shadow-lg hover:bg-white"
-                aria-label="Open account menu"
-              >
-                <Menu className="h-5 w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-
-            <DropdownMenuContent
-              align="end"
-              className="w-72 rounded-2xl border-slate-200 bg-white p-2 shadow-[0_18px_48px_rgba(15,23,42,0.14)]"
-            >
-              <DropdownMenuLabel className="px-3 py-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#dbeafe] text-sm font-semibold text-[#1d4ed8]">
-                    {initials || "U"}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-900">{displayName}</p>
-                    <p className="truncate text-xs text-slate-500">{user?.email || "Signed in"}</p>
-                  </div>
-                </div>
-              </DropdownMenuLabel>
-
-              <DropdownMenuSeparator />
-
-              <div className="rounded-xl bg-[linear-gradient(135deg,#eff6ff_0%,#f8fbff_100%)] px-3 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#2563eb]">
-                  Workspace
-                </p>
-                <p className="mt-2 text-sm text-slate-600">
-                  Manage your account, add credits, and continue optimizing content.
-                </p>
-              </div>
-
-              <DropdownMenuItem
-                className="mt-2 rounded-xl px-3 py-3 text-slate-700 focus:bg-slate-50"
-                onSelect={(event) => {
-                  event.preventDefault();
-                  void handleAddCredits();
-                }}
-              >
-                <CircleDollarSign className="mr-2 h-4 w-4 text-[#2563eb]" />
-                Add Credits
-              </DropdownMenuItem>
-
-              <DropdownMenuItem
-                className="rounded-xl px-3 py-3 text-slate-700 focus:bg-slate-50"
-                onSelect={(event) => {
-                  event.preventDefault();
-                }}
-              >
-                <UserRound className="mr-2 h-4 w-4 text-slate-500" />
-                Account Details
-              </DropdownMenuItem>
-
-              <DropdownMenuSeparator />
-
-              <DropdownMenuItem
-                className="rounded-xl px-3 py-3 text-red-600 focus:bg-red-50 focus:text-red-700"
-                onSelect={(event) => {
-                  event.preventDefault();
-                  onLogout?.();
-                }}
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      ) : null}
 
       <div className="relative z-10 max-w-7xl mx-auto px-6 pt-24 pb-36">
         <div className="flex flex-col lg:flex-row gap-14">
@@ -145,6 +25,26 @@ export function Hero({ onLogout, isSignedIn, user }: HeroProps) {
               Spot weak sections instantly and get a structured report that
               improves clarity, structure, originality, and search performance.
             </p>
+
+            <div className="mt-8 rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-md">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/70">
+                Required Before Analysis
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold leading-tight text-white">
+                Sign in to start analyzing your article
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-gray-200">
+                Your analysis workspace opens right after login so you can upload a draft and
+                begin reviewing it immediately.
+              </p>
+              <button
+                type="button"
+                onClick={onLoginClick}
+                className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-white px-6 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+              >
+                Login To Continue
+              </button>
+            </div>
           </div>
 
           <div

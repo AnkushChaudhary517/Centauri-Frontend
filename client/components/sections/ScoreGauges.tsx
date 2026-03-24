@@ -5,11 +5,10 @@ import type {
   AnalysisRequest,
   RecommendationResponse,
 } from "@/services/seoAnalysis";
+import { getRecommendations } from "@/services/seoAnalysis";
 import { useEffect, useState } from "react";
 import { DocumentEditor } from "./DocumentEditor";
 import { useRecommendations } from "@/hooks/fetch-recommendations";
-import { getRecommendationsUrl } from "@/utils/ApiConfig";
-import { getToken } from "@/utils/AuthApi";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
 
@@ -19,28 +18,7 @@ const POLL_INTERVAL = 10_000;
 async function GetRecommendations(
   request: AnalysisRequest,
 ): Promise<RecommendationResponse> {
-  const url = getRecommendationsUrl();
-  const token = getToken();
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    RequestId: localStorage.getItem("RequestId") ?? "",
-  };
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(request),
-  });
-
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`);
-  }
-
-  return response.json();
+  return getRecommendations(request);
 }
 
 interface ScoreGaugesProps {

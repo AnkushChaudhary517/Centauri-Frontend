@@ -4,13 +4,19 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { authAPI } from "@/utils/AuthApi";
 import { useAuth } from "@/utils/AuthContext";
+import { cn } from "@/lib/utils";
 
 interface SignUpProps {
   onSignInSuccess?: () => void;
   onCreateAccount?: () => void;
+  variant?: "page" | "dialog";
 }
 
-export function SignUp({ onSignInSuccess, onCreateAccount }: SignUpProps) {
+export function SignUp({
+  onSignInSuccess,
+  onCreateAccount,
+  variant = "page",
+}: SignUpProps) {
   const [mode, setMode] = useState<"login" | "forgotPassword" | "resetPassword">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -176,9 +182,20 @@ export function SignUp({ onSignInSuccess, onCreateAccount }: SignUpProps) {
   };
 
   return (
-    <div className="signup-section bg-white py-12 sm:py-16 lg:py-20">
-      <div className="max-w-md mx-auto px-4">
-        <div className="bg-white border border-gray-200 rounded-xl p-8 sm:p-10 shadow-sm">
+    <div
+      className={cn(
+        "signup-section",
+        variant === "page" ? "bg-white py-12 sm:py-16 lg:py-20" : "bg-transparent py-0",
+      )}
+    >
+      <div className={cn("mx-auto", variant === "page" ? "max-w-md px-4" : "max-w-none px-0")}>
+        <div
+          className={cn(
+            "rounded-xl border border-gray-200 bg-white p-8 shadow-sm sm:p-10",
+            variant === "dialog" &&
+              "rounded-[28px] border-[#d7e3f4] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,251,255,0.98)_100%)] p-6 shadow-[0_24px_70px_rgba(15,23,42,0.10)] backdrop-blur sm:p-8",
+          )}
+        >
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
             Get Started with <span className="text-secondary">Centauri</span>
           </h2>

@@ -2,7 +2,13 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { authAPI } from "@/utils/AuthApi";
+import {
+  authAPI,
+  DEFAULT_TRIAL_CREDITS,
+  DEFAULT_TRIAL_SUBSCRIPTION,
+  setStoredRemainingCredits,
+  setStoredSubscription,
+} from "@/utils/AuthApi";
 import { useAuth } from "@/utils/AuthContext";
 import {
   Dialog,
@@ -11,12 +17,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Building2, CheckCircle2, Eye, EyeOff, ShieldCheck, UserCircle2, Users2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface CreateAccountProps {
   onBackToLogin: () => void;
+  variant?: "page" | "dialog";
 }
 
-export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
+export function CreateAccount({
+  onBackToLogin,
+  variant = "page",
+}: CreateAccountProps) {
   const [email, setEmail] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [showCodeInput, setShowCodeInput] = useState(false);
@@ -205,11 +216,13 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
       });
 
       await login(email.trim(), profileForm.password);
+      setStoredSubscription(DEFAULT_TRIAL_SUBSCRIPTION);
+      setStoredRemainingCredits(DEFAULT_TRIAL_CREDITS);
 
       setIsProfileDialogOpen(false);
       toast({
         title: "Success",
-        description: "Your account has been set up successfully",
+        description: "Your account is ready. 5 trial credits have been added for 14 days.",
       });
     } catch (err: any) {
       toast({
@@ -223,9 +236,21 @@ export function CreateAccount({ onBackToLogin }: CreateAccountProps) {
   };
 
   return (
-    <div className="signup-section bg-white py-12">
-      <div className="max-w-md mx-auto px-4">
-        <div className="border rounded-xl p-8 shadow-sm relative">
+    <div
+      className={cn(
+        "signup-section",
+        variant === "page" ? "bg-white py-12" : "bg-transparent py-0",
+      )}
+    >
+      <div className={cn("mx-auto", variant === "page" ? "max-w-md px-4" : "max-w-none px-0")}>
+        <div
+          className={cn(
+            "relative rounded-xl border p-8 shadow-sm",
+            variant === "page"
+              ? "bg-white"
+              : "rounded-[28px] border-[#d7e3f4] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,251,255,0.98)_100%)] shadow-[0_24px_70px_rgba(15,23,42,0.10)] backdrop-blur",
+          )}
+        >
           {/* Page Loader Overlay */}
           {isBusy && !isProfileDialogOpen && (
             <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center rounded-xl z-10">
