@@ -51,16 +51,13 @@ export function RecommendationsList({
 
   return (
     <div className="recommendations-list flex h-full flex-col">
-      <div className="border-b border-slate-200 px-4 py-4">
-        <h3 className="text-lg font-semibold text-slate-900">
+      <div className="border-b border-slate-200 px-3 py-3">
+        <h3 className="text-base font-semibold text-slate-900">
           {recommendations.length} Recommendations
         </h3>
-        <p className="mt-1 text-sm text-slate-600">
-          All recommendation groups are expanded by default for faster review.
-        </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto divide-y divide-slate-100 p-2">
+      <div className="flex-1 overflow-y-auto divide-y divide-slate-100 p-1.5">
         {recommendations.map((rec, index) => {
           const isOpen = openIndices.includes(index);
 
@@ -70,21 +67,21 @@ export function RecommendationsList({
               ref={(el) => {
                 itemRefs.current[index] = el;
               }}
-              className="w-full overflow-hidden rounded-2xl bg-white shadow-sm"
+              className="w-full overflow-hidden rounded-[18px] bg-white shadow-sm"
             >
               <button
                 onClick={() => handleToggle(index)}
-                className={`flex w-full items-center justify-between px-4 py-3 text-left transition-colors ${
+                className={`flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors ${
                   isOpen ? "bg-[#eff6ff] text-slate-900" : "text-slate-700 hover:bg-slate-50"
                 }`}
               >
-                <div className="flex w-full items-center gap-3">
+                <div className="flex w-full items-center gap-2.5">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{rec.issue}</p>
                     <p className="mt-1 truncate text-xs text-slate-500">{rec.whatToChange}</p>
                   </div>
-                  <div className="ml-3 flex items-center gap-2 text-xs text-slate-400">
-                    <div className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                  <div className="ml-2 flex items-center gap-1.5 text-xs text-slate-400">
+                    <div className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-slate-600">
                       {rec.priority}
                     </div>
                     {isOpen ? (
@@ -97,8 +94,8 @@ export function RecommendationsList({
               </button>
 
               <div
-                className={`overflow-hidden px-4 transition-[max-height] duration-300 ease-in-out ${
-                  isOpen ? "max-h-[1400px] py-4" : "max-h-0"
+                className={`overflow-hidden px-3 transition-[max-height] duration-300 ease-in-out ${
+                  isOpen ? "max-h-[1400px] py-3" : "max-h-0"
                 }`}
               >
                 {isOpen ? (

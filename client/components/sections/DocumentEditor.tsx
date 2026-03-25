@@ -1,14 +1,17 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Download } from "lucide-react";
+import { X, Download, Info } from "lucide-react";
 import { InteractiveEditor } from "./InteractiveEditor";
 import { RecommendationsList } from "./RecommendationsList";
-import type { Recommendation, RecommendationItem } from "@/services/seoAnalysis";
+import type { AnalysisResponse, Recommendation, RecommendationItem } from "@/services/seoAnalysis";
+import { getAnalysisMetrics, type MetricItem } from "./scoreMetrics";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface DocumentEditorProps {
   isOpen: boolean;
   onClose: () => void;
   content: string;
   recommendations: RecommendationItem;
+  analysisResult?: AnalysisResponse | null;
   onSave: (updatedContent: string) => void;
   onExportReport?: () => void;
 }
@@ -19,10 +22,11 @@ export function DocumentEditor({
   onSave,
   content: initialContent,
   recommendations,
+  analysisResult,
   onExportReport,
 }: DocumentEditorProps) {
   const [content, setContent] = useState(initialContent);
-  const [leftWidth, setLeftWidth] = useState<number>(460);
+  const [leftWidth, setLeftWidth] = useState<number>(360);
   const [selectedRecommendationIndex, setSelectedRecommendationIndex] = useState<number | null>(
     recommendations?.sentenceLevel?.length ? 0 : null,
   );
@@ -46,7 +50,7 @@ export function DocumentEditor({
     const onMove = (e: MouseEvent) => {
       if (!isDragging.current) return;
       const delta = e.clientX - dragStartX.current;
-      const next = Math.max(320, Math.min(880, dragStartWidth.current + delta));
+      const next = Math.max(280, Math.min(560, dragStartWidth.current + delta));
       setLeftWidth(next);
     };
 
@@ -95,6 +99,7 @@ export function DocumentEditor({
     (recommendations?.overall?.length || 0) +
     (recommendations?.sectionLevel?.length || 0) +
     (recommendations?.sentenceLevel?.length || 0);
+  const metrics = getAnalysisMetrics(analysisResult);
 
   const handleApplySuggestion = () => {
     if (!selectedRecommendation) return;
@@ -149,18 +154,18 @@ export function DocumentEditor({
         <div className="flex min-w-0 flex-1 overflow-hidden pb-[84px]">
           <div
             style={{ width: leftWidth }}
-            className="flex h-full min-w-[320px] flex-none flex-col overflow-hidden border-r border-slate-200 bg-[linear-gradient(180deg,#fbfdff_0%,#f6f9fd_100%)]"
+            className="flex h-full min-w-[280px] flex-none flex-col overflow-hidden border-r border-slate-200 bg-[linear-gradient(180deg,#fbfdff_0%,#f6f9fd_100%)]"
           >
-            <div className="border-b border-slate-200 px-4 py-4">
-              <div className="mb-3">
+            <div className="border-b border-slate-200 px-3 py-2.5">
+              <div className="mb-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
                   Recommendations
                 </p>
-                <p className="mt-2 text-sm text-slate-600">
+                <p className="mt-1 text-xs text-slate-600">
                   Review {totalRecommendations} suggestions and apply fixes directly.
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => {
                     setActiveTab("overall");
@@ -203,7 +208,7 @@ export function DocumentEditor({
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-hidden p-4">
+            <div className="min-h-0 flex-1 overflow-hidden p-2">
               <RecommendationsList
                 recommendations={activeList}
                 selectedIndex={selectedRecommendationIndex}
@@ -225,21 +230,39 @@ export function DocumentEditor({
           />
 
           <div className="min-w-0 flex-1 overflow-hidden bg-[linear-gradient(180deg,#f7faff_0%,#f2f6fc_100%)]">
-            <div className="h-full overflow-auto p-4 sm:p-5 lg:p-6">
-              <div className="h-full min-w-0 overflow-auto rounded-[24px] border border-slate-200 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.06)]">
-                <InteractiveEditor
-                  content={content}
-                  onContentChange={setContent}
-                  highlightText={selectedRecommendation ? selectedRecommendation.examples.bad : ""}
-                  highlightTrigger={selectedRecommendationIndex ?? -1}
-                  highlightMode={
-                    activeTab === "sentenceLevel"
-                      ? "sentence"
-                      : activeTab === "sectionLevel"
-                        ? "section"
-                        : "overall"
-                  }
-                />
+            <div className="h-full overflow-auto p-2 sm:p-3">
+              <div className="flex h-full min-w-0 flex-col gap-2 xl:flex-row">
+                <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-[20px] border border-slate-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+                  <InteractiveEditor
+                    content={content}
+                    onContentChange={setContent}
+                    highlightText={selectedRecommendation ? selectedRecommendation.examples.bad : ""}
+                    highlightTrigger={selectedRecommendationIndex ?? -1}
+                    highlightMode={
+                      activeTab === "sentenceLevel"
+                        ? "sentence"
+                        : activeTab === "sectionLevel"
+                          ? "section"
+                          : "overall"
+                    }
+                  />
+                </div>
+
+                <aside className="w-full flex-none rounded-[18px] border border-[#dbe5f2] bg-[linear-gradient(180deg,#fbfdff_0%,#f3f7fd_100%)] shadow-[0_10px_24px_rgba(15,23,42,0.05)] xl:w-[154px]">
+                  <div className="border-b border-[#e5edf7] px-2.5 py-2.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#2563eb]">
+                      Scores
+                    </p>
+                  </div>
+
+                  <div className="px-2 py-2">
+                    <div className="space-y-2">
+                      {metrics.map((metric) => (
+                        <CompactScoreCard key={metric.label} metric={metric} />
+                      ))}
+                    </div>
+                  </div>
+                </aside>
               </div>
             </div>
           </div>
@@ -267,6 +290,61 @@ export function DocumentEditor({
                 Done Editing
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompactScoreCard({ metric }: { metric: MetricItem }) {
+  const radius = 28;
+  const circumference = Math.PI * radius;
+  const percentage = Math.min(metric.value / metric.max, 1);
+  const offset = circumference * (1 - percentage);
+
+  return (
+    <div className="rounded-[14px] border border-[#dce6f3] bg-white px-2.5 py-2 shadow-sm">
+      <div className="flex items-center justify-between gap-1.5">
+        <p className="min-w-0 text-[12px] font-semibold leading-4 text-slate-900">{metric.label}</p>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-[#d7e3f4] bg-[#f8fbff] text-slate-500 transition hover:text-slate-800"
+              aria-label={`More information about ${metric.label}`}
+            >
+              <Info className="h-3 w-3" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs text-sm leading-6">{metric.description}</TooltipContent>
+        </Tooltip>
+      </div>
+
+      <div className="mt-1.5 flex items-center justify-center">
+        <div className="relative h-[46px] w-[74px] flex-shrink-0">
+          <svg viewBox="0 0 72 44" className="h-[46px] w-[74px]">
+            <path
+              d="M8,36 A28,28 0 0,1 64,36"
+              fill="none"
+              stroke="#e2e8f0"
+              strokeWidth="7"
+            />
+            <path
+              d="M8,36 A28,28 0 0,1 64,36"
+              fill="none"
+              stroke={metric.color}
+              strokeWidth="7"
+              strokeDasharray={circumference}
+              strokeDashoffset={offset}
+              strokeLinecap="round"
+            />
+          </svg>
+          <div className="absolute inset-x-0 bottom-[4px] text-center">
+            <p className="text-[15px] font-bold leading-none" style={{ color: metric.color }}>
+              {Math.round(metric.value)}
+              {metric.showPercentage ? "%" : ""}
+            </p>
           </div>
         </div>
       </div>

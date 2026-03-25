@@ -172,7 +172,7 @@ export function InteractiveEditor({
 
   return (
     <div className="interactive-editor flex h-full flex-col bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)]">
-      <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 px-5 py-3 backdrop-blur">
+      <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 px-3 py-2.5 backdrop-blur">
         <div ref={toolbarRef} className="flex flex-wrap items-center gap-2">
           <button
             aria-label="Paragraph"
@@ -246,12 +246,12 @@ export function InteractiveEditor({
 
       <div
         ref={containerRef}
-        className="flex-1 p-4 sm:p-5"
+        className="flex-1 p-2 sm:p-2.5"
         style={{ display: "flex", flexDirection: "column", minHeight: 0 }}
       >
         <div className="relative flex-1">
           {(!content || content.replace(/\s|&nbsp;|<br\/?>(\s*)?/g, "").length === 0) && (
-            <div className="pointer-events-none absolute inset-0 p-8 text-sm text-slate-400">
+            <div className="pointer-events-none absolute inset-0 p-5 text-sm text-slate-400">
               Paste or type your article here. Use the toolbar to format text.
             </div>
           )}
@@ -264,7 +264,7 @@ export function InteractiveEditor({
             suppressContentEditableWarning
             role="textbox"
             aria-multiline
-            className="h-full min-h-[620px] overflow-y-auto rounded-2xl border border-slate-200 bg-white px-8 py-7 prose rich-prose max-w-none text-slate-900 leading-relaxed shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/20 focus:ring-offset-2"
+            className="h-full min-h-[620px] overflow-y-auto rounded-[16px] border border-slate-200 bg-white px-5 py-5 prose rich-prose max-w-none text-slate-900 leading-relaxed shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]/20 focus:ring-offset-1"
             style={{
               wordWrap: "break-word",
               overflowWrap: "break-word",

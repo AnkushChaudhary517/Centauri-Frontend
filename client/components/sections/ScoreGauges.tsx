@@ -3,23 +3,13 @@ import "./ScoreGauges.css";
 import type {
   AnalysisResponse,
   AnalysisRequest,
-  RecommendationResponse,
 } from "@/services/seoAnalysis";
-import { getRecommendations } from "@/services/seoAnalysis";
 import { useEffect, useState } from "react";
 import { DocumentEditor } from "./DocumentEditor";
 import { useRecommendations } from "@/hooks/fetch-recommendations";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Info } from "lucide-react";
-
-const MAX_ATTEMPTS = 10;
-const POLL_INTERVAL = 10_000;
-
-async function GetRecommendations(
-  request: AnalysisRequest,
-): Promise<RecommendationResponse> {
-  return getRecommendations(request);
-}
+import { Info, Sparkles } from "lucide-react";
+import { getAnalysisMetrics, type MetricItem } from "./scoreMetrics";
 
 interface ScoreGaugesProps {
   analysisResult?: AnalysisResponse | null;
@@ -120,12 +110,9 @@ export default function ScoreGauges({
 }: ScoreGaugesProps) {
   if (!analysisResult && !isLoading) return null;
 
-  const [isPolling, setIsPolling] = useState(false);
-  const [attempts, setAttempts] = useState(0);
-  const [recommendationsReady, setRecommendationsReady] = useState(false);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
-  const { data } = useRecommendations(
+  const { data, loading: recommendationsLoading, error: recommendationsError } = useRecommendations(
     analysisRequest &&
       analysisResult &&
       (!analysisResult.error || analysisResult.error.trim() === "")
@@ -134,110 +121,18 @@ export default function ScoreGauges({
   );
 
   useEffect(() => {
-    if (!analysisResult || !primaryKeyword || analysisResult.error) return;
+    if (data?.status?.toLowerCase() === "completed") {
+      setIsEditorOpen(true);
+    }
+  }, [data]);
 
-    let cancelled = false;
-
-    const request: AnalysisRequest = {
-      Article: { Raw: content ?? "", Format: "text" },
-      PrimaryKeyword: primaryKeyword,
-      SecondaryKeywords: [],
-      MetaTitle: "",
-      MetaDescription: "",
-      Url: "",
-      Context: { Locale: "", CitationRules: "" },
-    };
-
-    const poll = async () => {
-      setIsPolling(true);
-      setAttempts(0);
-      setRecommendationsReady(false);
-
-      for (let i = 1; i <= MAX_ATTEMPTS; i += 1) {
-        if (cancelled) return;
-
-        try {
-          const res = await GetRecommendations(request);
-
-          if (res?.status?.toLowerCase() === "completed") {
-            setRecommendationsReady(true);
-            setIsPolling(false);
-            return;
-          }
-        } catch {
-          setIsPolling(false);
-          return;
-        }
-
-        setAttempts(i);
-        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
-      }
-
-      setIsPolling(false);
-    };
-
-    poll();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [analysisResult, primaryKeyword, content]);
-
-  const getMetrics = (): MetricItem[] => {
-    if (!analysisResult) return [];
-
-    const userVisible = analysisResult.finalScores.userVisible;
-
-    return [
-      {
-        label: "SEO Score",
-        value: userVisible.seoScore ?? 0,
-        max: 100,
-        color: "#4f46e5",
-        showPercentage: false,
-        description:
-          "A blended measure of on-page optimization, structure, and keyword alignment.",
-      },
-      {
-        label: "AI Indexing",
-        value: userVisible.aiIndexingScore ?? 0,
-        max: 100,
-        color: "#10b981",
-        showPercentage: false,
-        description:
-          "How well the content is structured for AI systems and machine-assisted discovery.",
-      },
-      {
-        label: "Expertise",
-        value: userVisible.expertiseScore ?? 0,
-        max: 100,
-        color: "#3b82f6",
-        showPercentage: true,
-        description:
-          "Signals that the content demonstrates first-hand knowledge and subject depth.",
-      },
-      {
-        label: "Authority",
-        value: userVisible.authorityScore ?? 0,
-        max: 100,
-        color: "#8b5cf6",
-        showPercentage: false,
-        description:
-          "Indicates how trustworthy and credible the content feels to readers and search systems.",
-      },
-      {
-        label: "Readability",
-        value: userVisible.readabilityScore ?? 0,
-        max: 100,
-        color: "#f97316",
-        showPercentage: false,
-        description:
-          "Estimates how easily readers can scan, understand, and retain the content.",
-      },
-    ];
-  };
-
-  const metrics = getMetrics();
+  const metrics = getAnalysisMetrics(analysisResult);
+  const shouldWaitForRecommendations =
+    !!analysisResult &&
+    !analysisResult.error &&
+    !!analysisRequest &&
+    !data &&
+    !recommendationsError;
 
   const handleSaveFromEditor = (updatedHtml: string) => {
     if (onEditorSave) {
@@ -251,18 +146,62 @@ export default function ScoreGauges({
   return (
     <div className="metrics-display-section bg-white py-8 sm:py-12 lg:py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {analysisResult ? (
+        {shouldWaitForRecommendations || (analysisResult && recommendationsLoading) ? (
+          <div className="score-shell">
+            <div className="flex flex-col items-center justify-center px-6 py-12 text-center sm:px-10 sm:py-16">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_30%,#dbeafe_0%,#eff6ff_42%,#ffffff_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_16px_40px_rgba(37,99,235,0.18)]">
+                <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-[#bfdbfe] border-t-[#2563eb] border-r-[#1d4ed8]" />
+              </div>
+              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.24em] text-[#2563eb]">
+                Centauri Editor
+              </p>
+              <h3 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
+                Preparing recommendations and editor view
+              </h3>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
+                Your analysis is complete. We&apos;re assembling recommendations and the interactive
+                editor so you can review fixes and scores together on one screen.
+              </p>
+            </div>
+          </div>
+        ) : null}
+
+        {analysisResult && !recommendationsLoading && recommendationsError ? (
+          <div className="score-shell">
+            <div className="flex flex-col gap-5 px-6 py-10 sm:px-10 sm:py-12">
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eff6ff] text-[#2563eb]">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="score-kicker">Editor Unavailable</p>
+                <h3 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">
+                  Recommendations are not ready yet
+                </h3>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
+                  We couldn&apos;t load the recommendation set right now. You can analyze more
+                  content or try again shortly.
+                </p>
+              </div>
+              <div className="score-actions">
+                <button className="score-button-secondary" onClick={handleMetricLoading}>
+                  Analyze More Content
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {analysisResult && !shouldWaitForRecommendations && !recommendationsLoading && !recommendationsError ? (
           <div className="score-shell">
             <div className="score-buttons">
               <div className="score-summary">
                 <p className="score-kicker">Performance Overview</p>
                 <h3>Your content quality snapshot</h3>
                 <p>
-                  Review the latest analysis scores and open recommendations once processing is complete.
+                  Your interactive editor is ready. Review the score snapshot here or reopen the
+                  full editing workspace any time.
                 </p>
-                {isPolling ? (
-                  <span className="score-status">Preparing recommendations • attempt {attempts} of {MAX_ATTEMPTS}</span>
-                ) : recommendationsReady ? (
+                {data?.status?.toLowerCase() === "completed" ? (
                   <span className="score-status score-status-ready">Recommendations ready</span>
                 ) : null}
               </div>
@@ -273,10 +212,10 @@ export default function ScoreGauges({
                 </button>
                 <button
                   onClick={() => setIsEditorOpen(true)}
-                  disabled={!recommendationsReady}
-                  className={recommendationsReady ? "score-button-primary" : "score-button-disabled"}
+                  disabled={!data?.recommendations}
+                  className={data?.recommendations ? "score-button-primary" : "score-button-disabled"}
                 >
-                  Recommendations
+                  Open Interactive Editor
                 </button>
               </div>
             </div>
@@ -288,6 +227,7 @@ export default function ScoreGauges({
                 onClose={() => setIsEditorOpen(false)}
                 content={content}
                 recommendations={data.recommendations}
+                analysisResult={analysisResult}
                 onExportReport={() =>
                   exportSeoReport(
                     analysisResult,
