@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Download, Info } from "lucide-react";
+import { X, Download, Info, Sparkles } from "lucide-react";
 import { InteractiveEditor } from "./InteractiveEditor";
 import { RecommendationsList } from "./RecommendationsList";
 import type { AnalysisResponse, Recommendation, RecommendationItem } from "@/services/seoAnalysis";
@@ -10,7 +10,9 @@ interface DocumentEditorProps {
   isOpen: boolean;
   onClose: () => void;
   content: string;
-  recommendations: RecommendationItem;
+  recommendations?: RecommendationItem | null;
+  recommendationsLoading?: boolean;
+  recommendationsError?: string | null;
   analysisResult?: AnalysisResponse | null;
   onSave: (updatedContent: string) => void;
   onExportReport?: () => void;
@@ -22,6 +24,8 @@ export function DocumentEditor({
   onSave,
   content: initialContent,
   recommendations,
+  recommendationsLoading = false,
+  recommendationsError = null,
   analysisResult,
   onExportReport,
 }: DocumentEditorProps) {
@@ -70,10 +74,10 @@ export function DocumentEditor({
   useEffect(() => {
     const activeListLength =
       activeTab === "overall"
-        ? recommendations.overall?.length || 0
+        ? recommendations?.overall?.length || 0
         : activeTab === "sectionLevel"
-          ? recommendations.sectionLevel?.length || 0
-          : recommendations.sentenceLevel?.length || 0;
+          ? recommendations?.sectionLevel?.length || 0
+          : recommendations?.sentenceLevel?.length || 0;
 
     if (activeListLength > 0) setSelectedRecommendationIndex(0);
     else setSelectedRecommendationIndex(null);
@@ -87,10 +91,10 @@ export function DocumentEditor({
 
   const activeList: Recommendation[] =
     activeTab === "overall"
-      ? recommendations.overall || []
+      ? recommendations?.overall || []
       : activeTab === "sectionLevel"
-        ? recommendations.sectionLevel || []
-        : recommendations.sentenceLevel || [];
+        ? recommendations?.sectionLevel || []
+        : recommendations?.sentenceLevel || [];
 
   const selectedRecommendation =
     selectedRecommendationIndex !== null ? activeList[selectedRecommendationIndex] : null;
@@ -100,6 +104,7 @@ export function DocumentEditor({
     (recommendations?.sectionLevel?.length || 0) +
     (recommendations?.sentenceLevel?.length || 0);
   const metrics = getAnalysisMetrics(analysisResult);
+  const hasRecommendations = totalRecommendations > 0;
 
   const handleApplySuggestion = () => {
     if (!selectedRecommendation) return;
@@ -169,12 +174,13 @@ export function DocumentEditor({
                 <button
                   onClick={() => {
                     setActiveTab("overall");
-                    setSelectedRecommendationIndex(recommendations.overall?.length ? 0 : null);
+                    setSelectedRecommendationIndex(recommendations?.overall?.length ? 0 : null);
                   }}
+                  disabled={!hasRecommendations}
                   className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
                     activeTab === "overall"
                       ? "bg-[#dbeafe] text-[#1d4ed8]"
-                      : "bg-white text-slate-600 hover:bg-slate-100"
+                      : "bg-white text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                   }`}
                 >
                   Overall
@@ -182,12 +188,13 @@ export function DocumentEditor({
                 <button
                   onClick={() => {
                     setActiveTab("sectionLevel");
-                    setSelectedRecommendationIndex(recommendations.sectionLevel?.length ? 0 : null);
+                    setSelectedRecommendationIndex(recommendations?.sectionLevel?.length ? 0 : null);
                   }}
+                  disabled={!hasRecommendations}
                   className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
                     activeTab === "sectionLevel"
                       ? "bg-[#dbeafe] text-[#1d4ed8]"
-                      : "bg-white text-slate-600 hover:bg-slate-100"
+                      : "bg-white text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                   }`}
                 >
                   Section
@@ -195,12 +202,13 @@ export function DocumentEditor({
                 <button
                   onClick={() => {
                     setActiveTab("sentenceLevel");
-                    setSelectedRecommendationIndex(recommendations.sentenceLevel?.length ? 0 : null);
+                    setSelectedRecommendationIndex(recommendations?.sentenceLevel?.length ? 0 : null);
                   }}
+                  disabled={!hasRecommendations}
                   className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
                     activeTab === "sentenceLevel"
                       ? "bg-[#dbeafe] text-[#1d4ed8]"
-                      : "bg-white text-slate-600 hover:bg-slate-100"
+                      : "bg-white text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                   }`}
                 >
                   Sentence
@@ -209,12 +217,29 @@ export function DocumentEditor({
             </div>
 
             <div className="min-h-0 flex-1 overflow-hidden p-2">
-              <RecommendationsList
-                recommendations={activeList}
-                selectedIndex={selectedRecommendationIndex}
-                onSelectRecommendation={setSelectedRecommendationIndex}
-                onApplySuggestion={handleApplySuggestion}
-              />
+              {recommendationsLoading ? (
+                <RecommendationLoader />
+              ) : recommendationsError ? (
+                <div className="flex h-full flex-col items-center justify-center rounded-[18px] border border-[#d9e4f4] bg-white px-6 text-center shadow-sm">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eff6ff] text-[#2563eb]">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <p className="mt-4 text-sm font-semibold text-slate-900">
+                    Recommendations unavailable
+                  </p>
+                  <p className="mt-2 text-xs leading-6 text-slate-500">
+                    We couldn&apos;t load recommendations right now. You can still edit the content
+                    and try again later.
+                  </p>
+                </div>
+              ) : (
+                <RecommendationsList
+                  recommendations={activeList}
+                  selectedIndex={selectedRecommendationIndex}
+                  onSelectRecommendation={setSelectedRecommendationIndex}
+                  onApplySuggestion={handleApplySuggestion}
+                />
+              )}
             </div>
           </div>
 
@@ -273,7 +298,9 @@ export function DocumentEditor({
             <div className="text-sm text-slate-600">
               {selectedRecommendationIndex !== null && activeList.length > 0
                 ? `Showing recommendation ${selectedRecommendationIndex + 1} of ${activeList.length}`
-                : "No recommendations"}
+                : recommendationsLoading
+                  ? "Preparing recommendations..."
+                  : "No recommendations"}
             </div>
             <div className="flex gap-3">
               <button
@@ -293,6 +320,20 @@ export function DocumentEditor({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function RecommendationLoader() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center rounded-[18px] border border-[#d9e4f4] bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] px-6 text-center shadow-sm">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_30%,#dbeafe_0%,#eff6ff_42%,#ffffff_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_16px_40px_rgba(37,99,235,0.12)]">
+        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[#bfdbfe] border-t-[#2563eb] border-r-[#1d4ed8]" />
+      </div>
+      <p className="mt-4 text-sm font-semibold text-slate-900">Preparing recommendations</p>
+      <p className="mt-2 text-xs leading-6 text-slate-500">
+        Your editor is ready. Recommendation cards will appear here in a moment.
+      </p>
     </div>
   );
 }

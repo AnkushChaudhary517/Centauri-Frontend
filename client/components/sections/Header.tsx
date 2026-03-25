@@ -71,7 +71,7 @@ export function Header({ isSignedIn, user, onLoginClick, onLogout }: HeaderProps
           />
         </a>
 
-        {isSignedIn ? (
+        {isSignedIn && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -181,14 +181,7 @@ export function Header({ isSignedIn, user, onLoginClick, onLogout }: HeaderProps
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        ) : (
-          <Button
-            onClick={onLoginClick}
-            className="rounded-full bg-white/15 px-5 text-white shadow-[0_12px_30px_rgba(15,23,42,0.18)] backdrop-blur-md transition hover:bg-white/25"
-          >
-            Login
-          </Button>
-        )}
+        ) }
       </div>
     </header>
   );

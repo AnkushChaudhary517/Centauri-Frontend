@@ -6,9 +6,9 @@ type EnvironmentUrls = {
   recommendationsUrl: string;
 };
 
-const API_ENVIRONMENT: ApiEnvironment = "localhost";
-//const API_ENVIRONMENT: ApiEnvironment = "production";
-const USE_MOCK_API = true;
+//const API_ENVIRONMENT: ApiEnvironment = "localhost";
+const API_ENVIRONMENT: ApiEnvironment = "production";
+const USE_MOCK_API = false;
 
 const ENVIRONMENT_URLS: Record<ApiEnvironment, EnvironmentUrls> = {
   localhost: {

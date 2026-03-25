@@ -115,6 +115,17 @@ export default function Index() {
     setIsMetricLoading(true);
   };
 
+  const handleEditorCloseToUpload = () => {
+    setIsLoading(false);
+    setIsMetricLoading(true);
+    setAnalysisResult(null);
+    setAnalysisRequest(null);
+
+    setTimeout(() => {
+      uploadRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <Header
@@ -133,7 +144,13 @@ export default function Index() {
 
       {!isAuthenticated ? (
         <>
-          <Hero onLoginClick={openLoginDialog} />
+          <Hero
+            onLoginClick={openLoginDialog}
+            onCreateAccountClick={() => {
+              setView("register");
+              setIsAuthDialogOpen(true);
+            }}
+          />
           <HowItWorks />
           <TabsWithSvg />
           <GrowthFaqSpotlight
@@ -169,6 +186,7 @@ export default function Index() {
                 originalContent={originalContent}
                 analysisRequest={analysisRequest}
                 onEditorSave={handleSave}
+                onEditorClose={handleEditorCloseToUpload}
               />
             </div>
           ) : null}

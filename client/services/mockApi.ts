@@ -271,7 +271,7 @@ export async function getMockAnalysisResponse(request: AnalysisRequest): Promise
 }
 
 export async function getMockRecommendationsResponse(): Promise<RecommendationResponse> {
-  await delay(500);
+  await delay(2500);
 
   return {
     status: "completed",

@@ -20,6 +20,7 @@ interface ScoreGaugesProps {
   analysisRequest?: AnalysisRequest | null;
   handleMetricLoading(): void;
   onEditorSave?: (data: { updatedContent: string; keyword: string }) => void;
+  onEditorClose?: () => void;
 }
 
 interface MetricItem {
@@ -107,6 +108,7 @@ export default function ScoreGauges({
   analysisRequest,
   handleMetricLoading,
   onEditorSave,
+  onEditorClose,
 }: ScoreGaugesProps) {
   if (!analysisResult && !isLoading) return null;
 
@@ -121,18 +123,12 @@ export default function ScoreGauges({
   );
 
   useEffect(() => {
-    if (data?.status?.toLowerCase() === "completed") {
+    if (analysisResult) {
       setIsEditorOpen(true);
     }
-  }, [data]);
+  }, [analysisResult]);
 
   const metrics = getAnalysisMetrics(analysisResult);
-  const shouldWaitForRecommendations =
-    !!analysisResult &&
-    !analysisResult.error &&
-    !!analysisRequest &&
-    !data &&
-    !recommendationsError;
 
   const handleSaveFromEditor = (updatedHtml: string) => {
     if (onEditorSave) {
@@ -146,27 +142,7 @@ export default function ScoreGauges({
   return (
     <div className="metrics-display-section bg-white py-8 sm:py-12 lg:py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {shouldWaitForRecommendations || (analysisResult && recommendationsLoading) ? (
-          <div className="score-shell">
-            <div className="flex flex-col items-center justify-center px-6 py-12 text-center sm:px-10 sm:py-16">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_30%,#dbeafe_0%,#eff6ff_42%,#ffffff_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_16px_40px_rgba(37,99,235,0.18)]">
-                <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-[#bfdbfe] border-t-[#2563eb] border-r-[#1d4ed8]" />
-              </div>
-              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.24em] text-[#2563eb]">
-                Centauri Editor
-              </p>
-              <h3 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
-                Preparing recommendations and editor view
-              </h3>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-                Your analysis is complete. We&apos;re assembling recommendations and the interactive
-                editor so you can review fixes and scores together on one screen.
-              </p>
-            </div>
-          </div>
-        ) : null}
-
-        {analysisResult && !recommendationsLoading && recommendationsError ? (
+        {analysisResult && recommendationsError ? (
           <div className="score-shell">
             <div className="flex flex-col gap-5 px-6 py-10 sm:px-10 sm:py-12">
               <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eff6ff] text-[#2563eb]">
@@ -191,17 +167,19 @@ export default function ScoreGauges({
           </div>
         ) : null}
 
-        {analysisResult && !shouldWaitForRecommendations && !recommendationsLoading && !recommendationsError ? (
+        {analysisResult && !recommendationsError ? (
           <div className="score-shell">
             <div className="score-buttons">
               <div className="score-summary">
                 <p className="score-kicker">Performance Overview</p>
                 <h3>Your content quality snapshot</h3>
                 <p>
-                  Your interactive editor is ready. Review the score snapshot here or reopen the
-                  full editing workspace any time.
+                  Your interactive editor opens as soon as analysis is complete. You can continue
+                  editing while recommendations load in the left panel.
                 </p>
-                {data?.status?.toLowerCase() === "completed" ? (
+                {recommendationsLoading ? (
+                  <span className="score-status">Preparing recommendations...</span>
+                ) : data?.status?.toLowerCase() === "completed" ? (
                   <span className="score-status score-status-ready">Recommendations ready</span>
                 ) : null}
               </div>
@@ -212,21 +190,25 @@ export default function ScoreGauges({
                 </button>
                 <button
                   onClick={() => setIsEditorOpen(true)}
-                  disabled={!data?.recommendations}
-                  className={data?.recommendations ? "score-button-primary" : "score-button-disabled"}
+                  className="score-button-primary"
                 >
                   Open Interactive Editor
                 </button>
               </div>
             </div>
 
-            {isEditorOpen && data?.recommendations ? (
+            {isEditorOpen ? (
               <DocumentEditor
                 isOpen={isEditorOpen}
                 onSave={handleSaveFromEditor}
-                onClose={() => setIsEditorOpen(false)}
+                onClose={() => {
+                  setIsEditorOpen(false);
+                  onEditorClose?.();
+                }}
                 content={content}
-                recommendations={data.recommendations}
+                recommendations={data?.recommendations ?? null}
+                recommendationsLoading={recommendationsLoading}
+                recommendationsError={recommendationsError}
                 analysisResult={analysisResult}
                 onExportReport={() =>
                   exportSeoReport(
