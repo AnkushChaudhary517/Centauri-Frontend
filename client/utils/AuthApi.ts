@@ -23,6 +23,23 @@ export interface SubscriptionPlanInput {
   billingCycle: "monthly";
 }
 
+export interface SubscriptionOrder {
+  orderId: string;
+  amount: number;
+  currency: string;
+  keyId?: string;
+  planId: string;
+  planName: string;
+  monthlyPrice: number;
+}
+
+export interface VerifySubscriptionPaymentPayload {
+  plan: SubscriptionPlanInput;
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+}
+
 export interface CurrentSubscription {
   planId: string;
   name: string;
@@ -166,6 +183,22 @@ type CreditsApiResponse = {
   data?: Record<string, any> | null;
   credits?: Record<string, any> | null;
   remainingCredits?: Record<string, any> | null;
+  [key: string]: unknown;
+};
+
+type RazorpayOrderApiResponse = {
+  success?: boolean;
+  message?: string;
+  orderId?: string;
+  amount?: number;
+  currency?: string;
+  keyId?: string;
+  data?: {
+    orderId?: string;
+    amount?: number;
+    currency?: string;
+    keyId?: string;
+  };
   [key: string]: unknown;
 };
 
@@ -466,6 +499,21 @@ function normalizeRemainingCredits(
   };
 }
 
+function normalizeSubscriptionOrder(
+  response: RazorpayOrderApiResponse | null | undefined,
+  plan: SubscriptionPlanInput,
+): SubscriptionOrder {
+  return {
+    orderId: String(response?.orderId || response?.data?.orderId || `order_${plan.planId}`),
+    amount: Number(response?.amount || response?.data?.amount || plan.monthlyPrice * 100),
+    currency: String(response?.currency || response?.data?.currency || 'INR'),
+    keyId: String(response?.keyId || response?.data?.keyId || ''),
+    planId: plan.planId,
+    planName: plan.name,
+    monthlyPrice: plan.monthlyPrice,
+  };
+}
+
 export async function apiCall<T>(
   endpoint: string,
   options: {
@@ -551,10 +599,14 @@ export const authAPI = {
       window.location.hash = "#/";
       return;
     }
-    window.location.href = `${API_BASE_URL}/auth/google`;
+    const authUrl = new URL(`${API_BASE_URL}/auth/google`);
+    authUrl.searchParams.set('redirect_uri', buildFrontendAuthRedirectUri());
+    window.location.href = authUrl.toString();
   },
   initiateFacebookSignIn: () => {
-    window.location.href = `${API_BASE_URL}/auth/facebook`;
+    const authUrl = new URL(`${API_BASE_URL}/auth/facebook`);
+    authUrl.searchParams.set('redirect_uri', buildFrontendAuthRedirectUri());
+    window.location.href = authUrl.toString();
   },
   exchangeGoogleToken: async (idToken: string) => {
     const response = await apiCall<AuthApiResponse>('/auth/google/exchange', {
@@ -726,6 +778,73 @@ export const authAPI = {
       subscription: normalized,
     };
   },
+  createSubscriptionOrder: async (plan: SubscriptionPlanInput) => {
+    const response = await postJsonWithFallback<RazorpayOrderApiResponse>(
+      [
+        '/payments/razorpay/create-order',
+        '/auth/payments/razorpay/create-order',
+        '/subscription/payment/order',
+      ],
+      {
+        planId: plan.planId,
+        planName: plan.name,
+        plan: plan.name,
+        monthlyPrice: plan.monthlyPrice,
+        articleAnalysesPerMonth: plan.articleAnalysesPerMonth,
+        billingCycle: plan.billingCycle,
+      },
+    );
+
+    return normalizeSubscriptionOrder(response, plan);
+  },
+  verifySubscriptionPayment: async (payload: VerifySubscriptionPaymentPayload) => {
+    const response = await postJsonWithFallback<SubscriptionApiResponse>(
+      [
+        '/payments/razorpay/verify',
+        '/auth/payments/razorpay/verify',
+        '/subscription/payment/verify',
+      ],
+      payload,
+    );
+
+    const normalized = normalizeCurrentSubscription(response, payload.plan) ?? {
+      planId: payload.plan.planId,
+      name: payload.plan.name,
+      monthlyPrice: payload.plan.monthlyPrice,
+      priceLabel: `$${payload.plan.monthlyPrice} / month`,
+      articleAnalysesPerMonth: payload.plan.articleAnalysesPerMonth,
+      billingCycle: payload.plan.billingCycle,
+      status: 'active',
+      renewalDate: null,
+    };
+
+    setStoredSubscription(normalized);
+    setStoredRemainingCredits({
+      available: payload.plan.articleAnalysesPerMonth,
+      used: 0,
+      total: payload.plan.articleAnalysesPerMonth,
+      expiresAt: null,
+    });
+
+    return {
+      message: response?.message || 'Payment verified and subscription activated successfully.',
+      subscription: normalized,
+    };
+  },
+  reportSubscriptionPaymentFailure: async (payload: {
+    plan: SubscriptionPlanInput;
+    orderId?: string;
+    reason: string;
+  }) => {
+    return postJsonWithFallback(
+      [
+        '/payments/razorpay/failure',
+        '/auth/payments/razorpay/failure',
+        '/subscription/payment/failure',
+      ],
+      payload,
+    );
+  },
   refreshToken: async () => {
     const refreshToken = getRefreshToken();
     if (!refreshToken) throw new Error('No refresh token');
@@ -756,6 +875,10 @@ function buildMockSessionFromCurrentUser(): AuthSession {
       profileImage: "",
     },
   };
+}
+
+function buildFrontendAuthRedirectUri(): string {
+  return `${API_BASE_URL}/auth/callback`;
 }
 
 export async function login(

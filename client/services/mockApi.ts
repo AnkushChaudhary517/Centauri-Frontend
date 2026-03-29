@@ -171,6 +171,52 @@ export async function handleMockApiRequest<T>(
         currentSubscription: getStoredMockSubscription(),
       } as T;
 
+    case "/payments/razorpay/create-order":
+    case "/auth/payments/razorpay/create-order":
+    case "/subscription/payment/order":
+      return {
+        success: true,
+        orderId: `order_${Date.now()}`,
+        amount: (body?.monthlyPrice || 15) * 100,
+        currency: "INR",
+        keyId: "rzp_test_mock_centauri",
+      } as T;
+
+    case "/payments/razorpay/verify":
+    case "/auth/payments/razorpay/verify":
+    case "/subscription/payment/verify": {
+      const subscription = {
+        planId: body?.plan?.planId || "starter-monthly",
+        name: body?.plan?.name || "Starter Plan",
+        priceLabel: `$${body?.plan?.monthlyPrice || 15} / month`,
+        monthlyPrice: body?.plan?.monthlyPrice || 15,
+        articleAnalysesPerMonth: body?.plan?.articleAnalysesPerMonth || 10,
+        billingCycle: "monthly" as const,
+        status: "active",
+        renewalDate: null,
+      };
+      setStoredMockSubscription(subscription);
+      setStoredMockCredits({
+        available: subscription.articleAnalysesPerMonth,
+        used: 0,
+        total: subscription.articleAnalysesPerMonth,
+        expiresAt: null,
+      });
+      return {
+        success: true,
+        message: "Mock Razorpay payment verified successfully.",
+        subscription,
+      } as T;
+    }
+
+    case "/payments/razorpay/failure":
+    case "/auth/payments/razorpay/failure":
+    case "/subscription/payment/failure":
+      return {
+        success: true,
+        message: "Mock payment failure recorded.",
+      } as T;
+
     case "/auth/credits/remaining":
     case "/credits/remaining":
     case "/auth/remaining-credits":

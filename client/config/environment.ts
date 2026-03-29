@@ -4,6 +4,7 @@ type EnvironmentUrls = {
   apiBaseUrl: string;
   seoAnalyzeUrl: string;
   recommendationsUrl: string;
+  razorpayKeyId: string;
 };
 
 //const API_ENVIRONMENT: ApiEnvironment = "localhost";
@@ -15,11 +16,13 @@ const ENVIRONMENT_URLS: Record<ApiEnvironment, EnvironmentUrls> = {
     apiBaseUrl: "https://localhost:7206/api/v1",
     seoAnalyzeUrl: "https://localhost:7206/api/Seo/analyze",
     recommendationsUrl: "https://localhost:7206/api/Seo/recommendations",
+    razorpayKeyId: "rzp_test_mock_centauri",
   },
   production: {
     apiBaseUrl: "https://api.getcentauri.com/api/v1",
     seoAnalyzeUrl: "https://api.getcentauri.com/api/Seo/analyze",
     recommendationsUrl: "https://api.getcentauri.com/api/Seo/recommendations",
+    razorpayKeyId: "rzp_live_replace_with_real_key",
   },
 };
 

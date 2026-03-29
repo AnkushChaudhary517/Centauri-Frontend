@@ -7,6 +7,7 @@ import {
   type CurrentSubscription,
   type SubscriptionPlanInput,
 } from "@/utils/AuthApi";
+import { environment } from "@/config/environment";
 import { useAuth } from "@/utils/AuthContext";
 import { ArrowLeft, BadgeCheck, CheckCircle2, Layers3, Sparkles, Target, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -86,14 +87,62 @@ export default function PricingPage() {
   const handleSelectPlan = async () => {
     try {
       setIsSubmitting(true);
-      const result = await authAPI.subscribeToPlan(STARTER_PLAN);
-      setCurrentSubscription(result.subscription);
+      const order = await authAPI.createSubscriptionOrder(STARTER_PLAN);
 
-      toast({
-        title: "Subscription activated",
-        description:
-          result.message ||
-          "Your Starter Plan is active now. You can return to the workspace and continue analyzing articles.",
+      if (environment.useMockApi) {
+        const result = await authAPI.verifySubscriptionPayment({
+          plan: STARTER_PLAN,
+          razorpayOrderId: order.orderId,
+          razorpayPaymentId: `pay_${Date.now()}`,
+          razorpaySignature: `signature_${Date.now()}`,
+        });
+        setCurrentSubscription(result.subscription);
+        toast({
+          title: "Subscription activated",
+          description:
+            result.message ||
+            "Your Starter Plan is active now. You can return to the workspace and continue analyzing articles.",
+        });
+        navigate("/", { replace: true });
+        return;
+      }
+
+      await openRazorpayCheckout({
+        orderId: order.orderId,
+        keyId: order.keyId || environment.urls.razorpayKeyId,
+        amount: order.amount,
+        prefill: {
+          name: [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim(),
+          email: user?.email || "",
+        },
+        onSuccess: async (paymentResponse) => {
+          const result = await authAPI.verifySubscriptionPayment({
+            plan: STARTER_PLAN,
+            razorpayOrderId: paymentResponse.razorpay_order_id,
+            razorpayPaymentId: paymentResponse.razorpay_payment_id,
+            razorpaySignature: paymentResponse.razorpay_signature,
+          });
+          setCurrentSubscription(result.subscription);
+          toast({
+            title: "Payment successful",
+            description:
+              result.message ||
+              "Your subscription is active now. You can start analyzing articles right away.",
+          });
+          navigate("/", { replace: true });
+        },
+        onFailure: async (reason) => {
+          await authAPI.reportSubscriptionPaymentFailure({
+            plan: STARTER_PLAN,
+            orderId: order.orderId,
+            reason,
+          });
+          toast({
+            title: "Payment cancelled",
+            description: "Your payment was not completed. You can try again whenever you're ready.",
+            variant: "destructive",
+          });
+        },
       });
     } catch (error) {
       console.error("Subscription purchase failed:", error);
@@ -282,4 +331,80 @@ export default function PricingPage() {
       </main>
     </div>
   );
+}
+
+async function openRazorpayCheckout({
+  orderId,
+  keyId,
+  amount,
+  currency = "USD",
+  prefill,
+  onSuccess,
+  onFailure,
+}: {
+  orderId: string;
+  keyId: string;
+  amount: number;
+  currency?: string;
+  prefill?: {
+    name?: string;
+    email?: string;
+  };
+  onSuccess: (response: RazorpayPaymentResponse) => Promise<void>;
+  onFailure: (reason: string) => Promise<void>;
+}) {
+  const isLoaded = await loadRazorpayScript();
+  if (!isLoaded || !window.Razorpay) {
+    throw new Error("Razorpay SDK could not be loaded.");
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const razorpay = new window.Razorpay({
+      key: keyId,
+      name: "Centauri",
+      description: "Starter Plan subscription",
+      order_id: orderId,
+      amount:amount,
+      currency : currency,
+      prefill,
+      theme: {
+        color: "#2563eb",
+      },
+      handler: (response) => {
+        onSuccess(response).then(resolve).catch(reject);
+      },
+      modal: {
+        ondismiss: () => {
+          onFailure("checkout_dismissed").then(resolve).catch(reject);
+        },
+      },
+    });
+
+    razorpay.open();
+  });
+}
+
+async function loadRazorpayScript() {
+  if (window.Razorpay) {
+    return true;
+  }
+
+  return new Promise<boolean>((resolve) => {
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      'script[src="https://checkout.razorpay.com/v1/checkout.js"]',
+    );
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(true), { once: true });
+      existingScript.addEventListener("error", () => resolve(false), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
 }

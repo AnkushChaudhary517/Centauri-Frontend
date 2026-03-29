@@ -9,12 +9,16 @@ export function Hero({ onLoginClick, onCreateAccountClick }: HeroProps) {
   return (
     <section className="relative overflow-hidden text-white">
       <div
-        className="absolute inset-0 bg-no-repeat bg-cover bg-center"
-        style={{ backgroundImage: "url(/assets/shape.png)" }}
+        className="absolute inset-0 bg-no-repeat"
+        style={{
+          backgroundImage: "url(/assets/shape.png)",
+          backgroundPosition: "center top",
+          backgroundSize: "100% 100%",
+        }}
       />
 
-      <div className="relative z-10 mx-auto max-w-7xl px-6 py-24 lg:min-h-screen lg:py-16">
-        <div className="flex flex-col gap-14 lg:min-h-[calc(100vh-8rem)] lg:flex-row lg:items-center lg:justify-between">
+      <div className="relative z-10 mx-auto max-w-7xl px-6 py-16 lg:py-10">
+        <div className="flex flex-col gap-10 lg:min-h-[560px] lg:flex-row lg:items-center lg:justify-between">
           <div className="flex max-w-xl flex-1 items-center">
             {/* <img
               src="/assets/hero-logo.png"
@@ -52,9 +56,9 @@ export function Hero({ onLoginClick, onCreateAccountClick }: HeroProps) {
             </div> */}
           </div>
 
-          <div className="w-full max-w-[520px] lg:ml-auto">
-            <div className="rounded-[30px] border border-white/18 bg-[linear-gradient(180deg,rgba(13,28,52,0.62)_0%,rgba(255,255,255,0.12)_100%)] p-5 shadow-[0_26px_80px_rgba(2,6,23,0.26)] backdrop-blur-md sm:p-6">
-              <h2 className="mb-5 text-2xl font-semibold leading-tight text-white sm:text-3xl">
+          <div className="w-full max-w-[500px] lg:ml-auto">
+            <div className="rounded-[30px] border border-white/18 bg-[linear-gradient(180deg,rgba(13,28,52,0.62)_0%,rgba(255,255,255,0.12)_100%)] p-4 shadow-[0_26px_80px_rgba(2,6,23,0.26)] backdrop-blur-md sm:p-5">
+              <h2 className="mb-4 text-2xl font-semibold leading-tight text-white sm:text-3xl">
                 Sign in to start analyzing your content
               </h2>
 

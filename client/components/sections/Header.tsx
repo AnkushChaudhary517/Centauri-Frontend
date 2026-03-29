@@ -154,7 +154,7 @@ export function Header({ isSignedIn, user, onLoginClick, onLogout }: HeaderProps
                 }}
               >
                 <CircleDollarSign className="mr-2 h-4 w-4 text-[#2563eb]" />
-                Add Credits
+                Get Subscription
               </DropdownMenuItem>
 
               <DropdownMenuItem
