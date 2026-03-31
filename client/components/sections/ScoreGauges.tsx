@@ -120,6 +120,7 @@ export default function ScoreGauges({
       (!analysisResult.error || analysisResult.error.trim() === "")
       ? analysisRequest
       : null,
+    analysisResult?.requestId ?? null,
   );
 
   useEffect(() => {
@@ -206,6 +207,8 @@ export default function ScoreGauges({
                   onEditorClose?.();
                 }}
                 content={content}
+                originalContent={originalContent}
+                analysisRequest={analysisRequest}
                 recommendations={data?.recommendations ?? null}
                 recommendationsLoading={recommendationsLoading}
                 recommendationsError={recommendationsError}

@@ -1,14 +1,28 @@
 import { AnalysisRequest, RecommendationResponse } from '@/services/seoAnalysis';
 import { pollRecommendations } from '@/utils/exportSeoReport';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
-export function useRecommendations(request: AnalysisRequest | null) {
+export function useRecommendations(request: AnalysisRequest | null, requestKey?: string | null) {
   const [data, setData] = useState<RecommendationResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const lastResolvedRequestKey = useRef<string | null>(null);
+
+  const effectiveRequestKey =
+    requestKey ||
+    (request
+      ? JSON.stringify({
+          article: request.Article?.Raw,
+          primaryKeyword: request.PrimaryKeyword,
+          metaTitle: request.MetaTitle,
+          metaDescription: request.MetaDescription,
+          url: request.Url,
+        })
+      : null);
 
   useEffect(() => {
-    if (!request) return;
+    if (!request || !effectiveRequestKey) return;
+    if (lastResolvedRequestKey.current === effectiveRequestKey && data) return;
 
     const fetchData = async () => {
       setLoading(true);
@@ -17,6 +31,7 @@ export function useRecommendations(request: AnalysisRequest | null) {
         const result = await pollRecommendations(request);
         if (result) {
           setData(result);
+          lastResolvedRequestKey.current = effectiveRequestKey;
         } else {
           setError("Timeout: Recommendations not found");
         }
@@ -28,7 +43,7 @@ export function useRecommendations(request: AnalysisRequest | null) {
     };
 
     fetchData();
-  }, [request]);
+  }, [request, effectiveRequestKey, data]);
 
   return { data, loading, error };
 }

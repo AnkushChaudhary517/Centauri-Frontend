@@ -89,6 +89,48 @@ export interface UpdateProfilePayload {
   password: string;
 }
 
+type ApiErrorPayload = {
+  success?: boolean;
+  data?: unknown;
+  message?: string | null;
+  error?: {
+    code?: string | null;
+    message?: string | null;
+    statusCode?: number | null;
+    details?: unknown;
+  } | null;
+};
+
+const GENERIC_API_ERROR_MESSAGE = "Something went wrong. Please check logs.";
+
+function parseApiError(data: unknown): { code?: string; message: string } {
+  if (!data || typeof data !== "object") {
+    return { message: GENERIC_API_ERROR_MESSAGE };
+  }
+
+  const payload = data as ApiErrorPayload;
+  const code = payload.error?.code ?? undefined;
+  const message = payload.error?.message;
+
+  if (typeof message === "string" && message.trim()) {
+    return {
+      code: typeof code === "string" && code.trim() ? code : undefined,
+      message: message.trim(),
+    };
+  }
+
+  return { message: GENERIC_API_ERROR_MESSAGE };
+}
+
+function buildApiError(data: unknown): Error {
+  const parsed = parseApiError(data);
+  const error = new Error(parsed.message) as Error & { code?: string };
+  if (parsed.code) {
+    error.code = parsed.code;
+  }
+  return error;
+}
+
 async function postJsonWithFallback<T>(endpoints: string[], body: unknown): Promise<T> {
   let lastError: Error | null = null;
 
@@ -322,9 +364,7 @@ async function postJson<T>(endpoint: string, body: unknown): Promise<T> {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const errorMessage =
-      data?.message || data?.error?.message || data?.error || response.statusText || 'API request failed';
-    throw new Error(errorMessage);
+    throw buildApiError(data);
   }
 
   return data as T;
@@ -553,11 +593,13 @@ export async function apiCall<T>(
     body: body ? JSON.stringify(body) : undefined,
   });
 
+  const data = await response.json().catch(() => null);
+
   if (!response.ok) {
-    throw new Error(`API call failed: ${response.statusText}`);
+    throw buildApiError(data);
   }
 
-  return response.json();
+  return data as T;
 }
 
 export const authAPI = {
@@ -860,6 +902,20 @@ export const authAPI = {
   logout: async () => {
     await apiCall('/auth/logout', { method: 'POST' });
     clearTokens();
+  },
+  deleteAccount: async () => {
+    const response = await requestJsonWithFallback<{ success?: boolean; message?: string }>(
+      [
+        '/auth/delete-account',
+        '/auth/deleteaccount',
+        '/account/delete',
+        '/users/me',
+      ],
+      { method: 'DELETE' },
+    );
+
+    clearTokens();
+    return response;
   },
 };
 

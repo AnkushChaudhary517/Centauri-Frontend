@@ -14,6 +14,7 @@ export interface AnalysisRequest {
     };
   }
   export interface Recommendation {
+    id?: string;
     issue: string;
     whatToChange: string;
     examples: Example;
@@ -29,6 +30,21 @@ export interface RecommendationItem{
   export interface RecommendationResponse{
     recommendations:RecommendationItem
     status:string;
+  }
+  export interface RecommendationFeedbackPayload {
+    recommendationId: string;
+    requestId?: string;
+    feedback: "up" | "down";
+    issue: string;
+    whatToChange: string;
+    priority: string;
+    improves: string[];
+    originalArticle: string;
+    updatedArticle: string;
+    primaryKeyword?: string;
+    metaTitle?: string;
+    metaDescription?: string;
+    url?: string;
   }
   export interface AnalysisResponse {
     requestId: string;
@@ -70,8 +86,28 @@ export interface RecommendationItem{
   
 // API Configuration
 import { getMockAnalysisResponse, getMockRecommendationsResponse, isMockApiEnabled } from '@/services/mockApi';
-import { getSeoAnalyzeUrl, getRecommendationsUrl } from '@/utils/ApiConfig';
+import { getApiBaseUrl, getSeoAnalyzeUrl, getRecommendationsUrl } from '@/utils/ApiConfig';
 import { getToken } from '@/utils/AuthApi';
+
+const GENERIC_FEEDBACK_ERROR_MESSAGE = "We couldn't save your feedback right now. Please try again.";
+
+function getFeedbackErrorMessage(data: unknown): string {
+  if (!data || typeof data !== "object") {
+    return GENERIC_FEEDBACK_ERROR_MESSAGE;
+  }
+
+  const payload = data as {
+    error?: {
+      message?: string | null;
+    } | null;
+  };
+
+  if (typeof payload.error?.message === "string" && payload.error.message.trim()) {
+    return payload.error.message.trim();
+  }
+
+  return GENERIC_FEEDBACK_ERROR_MESSAGE;
+}
   // Parse file content to extract metadata
   export function parseFileContent(content: string): Partial<AnalysisRequest> {
     const parsed: Partial<AnalysisRequest> = {};
@@ -233,6 +269,43 @@ import { getToken } from '@/utils/AuthApi';
     }
 
     return response.json();
+  }
+
+  export async function submitRecommendationFeedback(
+    payload: RecommendationFeedbackPayload,
+  ): Promise<{ success?: boolean; message?: string }> {
+    if (isMockApiEnabled()) {
+      return (await import("@/services/mockApi")).handleMockApiRequest(
+        "/Seo/recommendations/feedback",
+        {
+          method: "POST",
+          body: payload,
+        },
+      );
+    }
+
+    const token = getToken();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const baseUrl = getRecommendationsUrl();
+    const response = await fetch(`${baseUrl}/feedback`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(getFeedbackErrorMessage(data));
+    }
+
+    return response.json().catch(() => ({ success: true }));
   }
   
   export function buildAnalysisRequest(

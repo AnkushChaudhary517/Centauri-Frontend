@@ -265,6 +265,30 @@ export async function handleMockApiRequest<T>(
       localStorage.removeItem(MOCK_CREDITS_STORAGE_KEY);
       return { success: true } as T;
 
+    case "/auth/delete-account":
+    case "/auth/deleteaccount":
+    case "/account/delete":
+    case "/users/me":
+      localStorage.removeItem(MOCK_USER_STORAGE_KEY);
+      localStorage.removeItem(MOCK_CREDITS_STORAGE_KEY);
+      localStorage.removeItem(MOCK_SUBSCRIPTION_STORAGE_KEY);
+      localStorage.removeItem("token");
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("authUser");
+      window.dispatchEvent(new CustomEvent("centauri:subscription-updated"));
+      window.dispatchEvent(new CustomEvent("centauri:credits-updated"));
+      return {
+        success: true,
+        message: "Account removed successfully.",
+      } as T;
+
+    case "/Seo/recommendations/feedback":
+      return {
+        success: true,
+        message: "Recommendation feedback recorded.",
+      } as T;
+
     default:
       throw new Error(`Mock API route not implemented for ${endpoint}`);
   }

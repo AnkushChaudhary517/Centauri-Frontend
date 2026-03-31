@@ -8,6 +8,8 @@ interface RecommendationsListProps {
   selectedIndex: number | null;
   onSelectRecommendation: (index: number) => void;
   onApplySuggestion: (suggestion: string) => void;
+  onFeedback?: (recommendation: Recommendation, feedback: "up" | "down") => void | Promise<void>;
+  feedbackByRecommendationId?: Record<string, { selected?: "up" | "down" | null; loading?: boolean }>;
 }
 
 export function RecommendationsList({
@@ -15,6 +17,8 @@ export function RecommendationsList({
   selectedIndex,
   onSelectRecommendation,
   onApplySuggestion,
+  onFeedback,
+  feedbackByRecommendationId,
 }: RecommendationsListProps) {
   const [openIndices, setOpenIndices] = useState<number[]>(
     recommendations.map((_, index) => index),
@@ -102,6 +106,8 @@ export function RecommendationsList({
                   <RecommendationOptions
                     recommendation={rec}
                     onApplySuggestion={onApplySuggestion}
+                    onFeedback={onFeedback}
+                    feedbackState={rec.id ? feedbackByRecommendationId?.[rec.id] : undefined}
                   />
                 ) : null}
               </div>

@@ -2,14 +2,24 @@ import { useState, useEffect, useRef } from "react";
 import { X, Download, Info, Sparkles } from "lucide-react";
 import { InteractiveEditor } from "./InteractiveEditor";
 import { RecommendationsList } from "./RecommendationsList";
-import type { AnalysisResponse, Recommendation, RecommendationItem } from "@/services/seoAnalysis";
+import type {
+  AnalysisRequest,
+  AnalysisResponse,
+  Recommendation,
+  RecommendationItem,
+} from "@/services/seoAnalysis";
 import { getAnalysisMetrics, type MetricItem } from "./scoreMetrics";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { submitRecommendationFeedback } from "@/services/seoAnalysis";
+import { useToast } from "@/components/ui/use-toast";
+import { environment } from "@/config/environment";
 
 interface DocumentEditorProps {
   isOpen: boolean;
   onClose: () => void;
   content: string;
+  originalContent?: string;
+  analysisRequest?: AnalysisRequest | null;
   recommendations?: RecommendationItem | null;
   recommendationsLoading?: boolean;
   recommendationsError?: string | null;
@@ -23,12 +33,15 @@ export function DocumentEditor({
   onClose,
   onSave,
   content: initialContent,
+  originalContent = "",
+  analysisRequest,
   recommendations,
   recommendationsLoading = false,
   recommendationsError = null,
   analysisResult,
   onExportReport,
 }: DocumentEditorProps) {
+  const { toast } = useToast();
   const [content, setContent] = useState(initialContent);
   const [leftWidth, setLeftWidth] = useState<number>(360);
   const [selectedRecommendationIndex, setSelectedRecommendationIndex] = useState<number | null>(
@@ -37,6 +50,9 @@ export function DocumentEditor({
   const [activeTab, setActiveTab] = useState<"overall" | "sectionLevel" | "sentenceLevel">(
     "sentenceLevel",
   );
+  const [feedbackByRecommendationId, setFeedbackByRecommendationId] = useState<
+    Record<string, { selected?: "up" | "down" | null; loading?: boolean }>
+  >({});
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -49,6 +65,7 @@ export function DocumentEditor({
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
   const dragStartWidth = useRef(0);
+  const fallbackRecommendationIds = useRef<Record<string, string>>({});
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -89,12 +106,26 @@ export function DocumentEditor({
 
   if (!isOpen) return null;
 
+  const getFallbackRecommendationId = (recommendation: Recommendation) => {
+    const key = `${recommendation.issue}::${recommendation.whatToChange}`;
+    if (!fallbackRecommendationIds.current[key]) {
+      fallbackRecommendationIds.current[key] = crypto.randomUUID();
+    }
+    return fallbackRecommendationIds.current[key];
+  };
+
+  const addRecommendationIds = (items: Recommendation[] = []) =>
+    items.map((recommendation) => ({
+      ...recommendation,
+      id: recommendation.id || getFallbackRecommendationId(recommendation),
+    }));
+
   const activeList: Recommendation[] =
     activeTab === "overall"
-      ? recommendations?.overall || []
+      ? addRecommendationIds(recommendations?.overall || [])
       : activeTab === "sectionLevel"
-        ? recommendations?.sectionLevel || []
-        : recommendations?.sentenceLevel || [];
+        ? addRecommendationIds(recommendations?.sectionLevel || [])
+        : addRecommendationIds(recommendations?.sentenceLevel || []);
 
   const selectedRecommendation =
     selectedRecommendationIndex !== null ? activeList[selectedRecommendationIndex] : null;
@@ -105,6 +136,74 @@ export function DocumentEditor({
     (recommendations?.sentenceLevel?.length || 0);
   const metrics = getAnalysisMetrics(analysisResult);
   const hasRecommendations = totalRecommendations > 0;
+
+  const handleRecommendationFeedback = async (
+    recommendation: Recommendation,
+    feedback: "up" | "down",
+  ) => {
+    if (!environment.enableRecommendationFeedback) {
+      return;
+    }
+
+    const recommendationId = recommendation.id || getFallbackRecommendationId(recommendation);
+    if (feedbackByRecommendationId[recommendationId]?.loading) {
+      return;
+    }
+
+    setFeedbackByRecommendationId((current) => ({
+      ...current,
+      [recommendationId]: {
+        ...current[recommendationId],
+        loading: true,
+      },
+    }));
+
+    try {
+      await submitRecommendationFeedback({
+        recommendationId,
+        requestId: analysisResult?.requestId,
+        feedback,
+        issue: recommendation.issue,
+        whatToChange: recommendation.whatToChange,
+        priority: recommendation.priority,
+        improves: recommendation.improves,
+        originalArticle: originalContent || initialContent || "",
+        updatedArticle: content,
+        primaryKeyword: analysisRequest?.PrimaryKeyword,
+        metaTitle: analysisRequest?.MetaTitle,
+        metaDescription: analysisRequest?.MetaDescription,
+        url: analysisRequest?.Url,
+      });
+
+      setFeedbackByRecommendationId((current) => ({
+        ...current,
+        [recommendationId]: {
+          selected: feedback,
+          loading: false,
+        },
+      }));
+      toast({
+        title: "Feedback received",
+        description: "Thanks for helping us improve recommendation quality.",
+      });
+    } catch (error) {
+      setFeedbackByRecommendationId((current) => ({
+        ...current,
+        [recommendationId]: {
+          ...current[recommendationId],
+          loading: false,
+        },
+      }));
+      toast({
+        title: "Feedback not submitted",
+        description:
+          error instanceof Error
+            ? error.message
+            : "We couldn't save your feedback right now. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleApplySuggestion = () => {
     if (!selectedRecommendation) return;
@@ -238,6 +337,8 @@ export function DocumentEditor({
                   selectedIndex={selectedRecommendationIndex}
                   onSelectRecommendation={setSelectedRecommendationIndex}
                   onApplySuggestion={handleApplySuggestion}
+                  onFeedback={handleRecommendationFeedback}
+                  feedbackByRecommendationId={feedbackByRecommendationId}
                 />
               )}
             </div>
@@ -305,7 +406,8 @@ export function DocumentEditor({
             <div className="flex gap-3">
               <button
                 onClick={handleDownload}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 font-medium text-slate-800 transition hover:bg-slate-50"
+                disabled={recommendationsLoading}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 font-medium text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
               >
                 <Download className="w-4 h-4" />
                 Download Recommendations

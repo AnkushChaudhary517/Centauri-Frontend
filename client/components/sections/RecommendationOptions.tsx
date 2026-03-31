@@ -1,10 +1,16 @@
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useState } from "react";
 import type { Recommendation } from "@/services/seoAnalysis";
+import { environment } from "@/config/environment";
 
 interface RecommendationOptionsProps {
   recommendation: Recommendation;
   onApplySuggestion: (suggestion: string) => void;
+  onFeedback?: (recommendation: Recommendation, feedback: "up" | "down") => void | Promise<void>;
+  feedbackState?: {
+    selected?: "up" | "down" | null;
+    loading?: boolean;
+  };
 }
 
 const IMPROVEMENT_COPY: Record<
@@ -22,6 +28,14 @@ const IMPROVEMENT_COPY: Record<
   authorityscore: {
     userAttribute: "Authority",
     meaning: "whether the article shows real expertise and confidence on the topic",
+  },
+  keywordscore: {
+    userAttribute: "Keyword Optimization",
+    meaning: "how well the article incorporates important keywords without overstuffing",
+  },
+  factualisolationScore: {
+    userAttribute: "Factual Clarity",
+    meaning: "whether the article clearly distinguishes facts from opinions and speculation",
   },
   expertisescore: {
     userAttribute: "Expertise",
@@ -62,6 +76,10 @@ const IMPROVEMENT_COPY: Record<
   answerblockdensityscore: {
     userAttribute: "Answer Accuracy",
     meaning: "whether the article gives clear, factual, and dependable answers",
+  },
+  technicalClarityScore: {
+    userAttribute: "Technical Clarity",
+    meaning: "how clearly technical concepts are explained for the target audience",
   },
   synthesiscoherencescore: {
     userAttribute: "Content Cohesion",
@@ -115,6 +133,8 @@ function buildImprovementSummary(improves: string[] = []) {
 export function RecommendationOptions({
   recommendation,
   onApplySuggestion,
+  onFeedback,
+  feedbackState,
 }: RecommendationOptionsProps) {
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
@@ -225,6 +245,38 @@ export function RecommendationOptions({
             {buildImprovementSummary(recommendation.improves)}
           </p>
         </div>
+
+        {environment.enableRecommendationFeedback ? (
+          <div>
+            <h3 className="mb-3 text-lg font-semibold text-gray-900">Was this recommendation useful?</h3>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={feedbackState?.loading}
+                onClick={() => void onFeedback?.(recommendation, "up")}
+                className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition ${
+                  feedbackState?.selected === "up"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                } disabled:cursor-not-allowed disabled:opacity-60`}
+              >
+                <ThumbsUp className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                disabled={feedbackState?.loading}
+                onClick={() => void onFeedback?.(recommendation, "down")}
+                className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition ${
+                  feedbackState?.selected === "down"
+                    ? "border-red-200 bg-red-50 text-red-700"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                } disabled:cursor-not-allowed disabled:opacity-60`}
+              >
+                <ThumbsDown className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         
       </div>

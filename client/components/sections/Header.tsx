@@ -10,25 +10,29 @@ import {
 import {
   getStoredRemainingCredits,
   getStoredSubscription,
+  authAPI,
   type AuthUser,
   type CurrentSubscription,
   type RemainingCredits,
 } from "@/utils/AuthApi";
 import { useEffect, useState } from "react";
-import { CircleDollarSign, LogOut, Menu, UserRound } from "lucide-react";
+import { CircleDollarSign, LogOut, Menu, Trash2, UserRound } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui/use-toast";
 
 interface HeaderProps {
   isSignedIn: boolean;
   user?: AuthUser | null;
   onLoginClick?: () => void;
-  onLogout?: () => void;
+  onLogout?: () => void | Promise<void>;
 }
 
 export function Header({ isSignedIn, user, onLoginClick, onLogout }: HeaderProps) {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [subscription, setSubscription] = useState<CurrentSubscription | null>(null);
   const [remainingCredits, setRemainingCredits] = useState<RemainingCredits | null>(null);
+  const [isRemovingAccount, setIsRemovingAccount] = useState(false);
   const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
   const displayName = fullName || user?.email || "User";
   const initials = displayName
@@ -59,6 +63,42 @@ export function Header({ isSignedIn, user, onLoginClick, onLogout }: HeaderProps
       window.removeEventListener("centauri:credits-updated", syncLocalState);
     };
   }, [isSignedIn]);
+
+  const handleRemoveAccount = async () => {
+    if (isRemovingAccount) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Remove your account permanently? This action cannot be undone.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setIsRemovingAccount(true);
+      const response = await authAPI.deleteAccount();
+      await onLogout?.();
+      navigate("/", { replace: true });
+      toast({
+        title: "Account removed",
+        description: response?.message || "Your account was removed successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Could not remove account",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Something went wrong while removing your account.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRemovingAccount(false);
+    }
+  };
 
   return (
     <header className="absolute inset-x-0 top-0 z-40">
@@ -165,6 +205,18 @@ export function Header({ isSignedIn, user, onLoginClick, onLogout }: HeaderProps
               >
                 <UserRound className="mr-2 h-4 w-4 text-slate-500" />
                 Account Details
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                className="rounded-xl px-3 py-3 text-red-600 focus:bg-red-50 focus:text-red-700"
+                disabled={isRemovingAccount}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  void handleRemoveAccount();
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {isRemovingAccount ? "Removing Account..." : "Remove Account"}
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
