@@ -58,10 +58,6 @@ export function Hero({ onLoginClick, onCreateAccountClick }: HeroProps) {
 
           <div className="w-full max-w-[500px] lg:ml-auto">
             <div className="rounded-[30px] border border-white/18 bg-[linear-gradient(180deg,rgba(13,28,52,0.62)_0%,rgba(255,255,255,0.12)_100%)] p-4 shadow-[0_26px_80px_rgba(2,6,23,0.26)] backdrop-blur-md sm:p-5">
-              <h2 className="mb-4 text-2xl font-semibold leading-tight text-white sm:text-3xl">
-                Sign in to start analyzing your content
-              </h2>
-
               <SignUp
                 variant="dialog"
                 onSignInSuccess={() => undefined}

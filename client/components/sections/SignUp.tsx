@@ -196,6 +196,12 @@ export function SignUp({
               "rounded-[28px] border-[#d7e3f4] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(248,251,255,0.98)_100%)] p-6 shadow-[0_24px_70px_rgba(15,23,42,0.10)] backdrop-blur sm:p-8",
           )}
         >
+          {variant === "dialog" ? (
+            <h2 className="mb-4 text-2xl font-semibold leading-tight text-slate-900 sm:text-3xl">
+              Sign in to start analyzing your content
+            </h2>
+          ) : null}
+
           {/* <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
             Get Started with <span className="text-secondary">Centauri</span>
           </h2> */}

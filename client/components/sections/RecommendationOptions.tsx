@@ -85,6 +85,10 @@ const IMPROVEMENT_COPY: Record<
     userAttribute: "Content Cohesion",
     meaning: "how logically the ideas connect and flow across the article",
   },
+  factretrievalscore: {
+    userAttribute: "Factual Accuracy",
+    meaning: "whether the article's factual claims are correct and verifiable",
+  },
   claritysynthesisscore: {
     userAttribute: "Content Cohesion",
     meaning: "how logically the ideas connect and flow across the article",
