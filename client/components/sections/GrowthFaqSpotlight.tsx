@@ -7,24 +7,24 @@ interface GrowthFaqSpotlightProps {
 
 const faqItems = [
   {
-    question: "How is contextual plagiarism different from plagiarism?",
+    question: "What actually sets Centauri apart from traditional SEO or GEO tools?",
     answer:
-      "Traditional plagiarism checks look for matching text. Contextual plagiarism identifies idea-level overlap and reused reasoning, even when wording is different. It helps prevent content from sounding familiar or recycled.",
+      "Most tools stop at keywords, backlinks, or surface-level optimization. Centauri evaluates how your content is understood, trusted, and reused by your users, search engines and AI systems. It looks at structure, intent coverage, factual grounding, and clarity, then connects every recommendation to a real outcome like better indexing, stronger authority, or higher engagement.",
   },
   {
-    question: "Should I aim for 100 out of 100 scores?",
+    question: "How valuable are Centauri’s recommendations in improving content performance?",
     answer:
-      "No. Scores are signals, not a finish line. An AI content checker helps optimize content for search systems and AI readers, but final decisions should come from content marketers, editors, and subject experts.",
+      "Centauri’s recommendations are designed to be directly usable, not theoretical. Each suggestion tells you exactly what to change and why it matters, whether it improves authority, readability, or indexing. This reduces editing time, removes guesswork, and helps teams move from “analyzing content” to actually improving it in fewer iterations.",
   },
   {
-    question: "What makes Centauri different from other SEO tools?",
+    question: "Why does Centauri evaluate human aspects of content when users are increasingly consuming answers through LLMs?",
     answer:
-      "Centauri combines AI-powered content analysis with SEO metrics to give you a complete view of your content's performance. We analyze both technical SEO and content quality in a single tool.",
+      "Because AI systems don’t just extract information, they prioritize content that is clear, well-structured, and trustworthy. Human-friendly elements like flow, clarity, and logical organization directly influence how machines interpret and reuse your content. And when users do visit your site, these same elements determine whether they stay, trust your brand, and take action.",
   },
   {
-    question: "Can I integrate Centauri with my existing tools?",
+    question: "Should I try to get a perfect 100/100 SEO and AI Indexing score?",
     answer:
-      "Yes. Centauri is built to fit modern editorial workflows, and the roadmap includes deeper integrations for content, SEO, and review operations.",
+      "No. A perfect score isn’t the goal, and often isn’t practical. The goal is to ensure your content is complete, credible, and easy to interpret for both machines and humans. In many cases, improving from 60 to 80 creates more impact than chasing the last few points.",
   },
 ];
 

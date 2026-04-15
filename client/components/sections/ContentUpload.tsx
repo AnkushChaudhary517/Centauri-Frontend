@@ -5,8 +5,10 @@ import { useToast } from "@/components/ui/use-toast";
 import mammoth from "mammoth";
 import {
   AnalysisRequest,
+  AnalyzeRequestOptions,
   analyzeSEOWithPolling,
   buildAnalysisRequest,
+  clearCurrentAnalysisRequestId,
   type AnalysisResponse,
 } from "@/services/seoAnalysis";
 import DOMPurify from "dompurify";
@@ -25,6 +27,10 @@ interface ContentUploadProps {
   onAnalysisError?: () => void;
   initialContent?: string;
   initialKeyword?: string;
+  reanalyzeContext?: {
+    shouldReanalyze: boolean;
+    previousRequestId?: string | null;
+  };
 }
 
 export function ContentUpload({
@@ -33,6 +39,7 @@ export function ContentUpload({
   onAnalysisError,
   initialContent = "",
   initialKeyword = "",
+  reanalyzeContext,
 }: ContentUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editableRef = useRef<HTMLDivElement>(null);
@@ -43,11 +50,16 @@ export function ContentUpload({
   const [fileName, setFileName] = useState("");
   const [primaryKeyword, setPrimaryKeyword] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisOptions, setAnalysisOptions] = useState<AnalyzeRequestOptions>({
+    reanalyze: false,
+    existingRequestId: null,
+  });
   const { toast } = useToast();
 
   const normalizedPlainText = htmlToPlainText(content).trim();
   const hasContent = normalizedPlainText.length > 0;
   const canAnalyze = !isAnalyzing && primaryKeyword.trim().length > 0 && hasContent;
+  const isReanalyzeFlow = Boolean(analysisOptions.reanalyze && analysisOptions.existingRequestId);
 
   const allowedTags = [
     "h1",
@@ -74,6 +86,13 @@ export function ContentUpload({
     setPrimaryKeyword(initialKeyword ?? "");
   }, [initialContent, initialKeyword]);
 
+  useEffect(() => {
+    setAnalysisOptions({
+      reanalyze: reanalyzeContext?.shouldReanalyze ?? false,
+      existingRequestId: reanalyzeContext?.previousRequestId ?? null,
+    });
+  }, [reanalyzeContext]);
+
   function sanitizeHtml(html: string) {
     return DOMPurify.sanitize(html, {
       ALLOWED_TAGS: allowedTags,
@@ -94,6 +113,10 @@ export function ContentUpload({
     if (!file) return;
 
     setFileName(file.name);
+    setAnalysisOptions({
+      reanalyze: false,
+      existingRequestId: null,
+    });
 
     try {
       if (file.name.endsWith(".docx")) {
@@ -172,8 +195,6 @@ export function ContentUpload({
   };
 
   const handleAnalyze = async () => {
-    localStorage.removeItem("RequestId");
-
     if (!primaryKeyword.trim()) {
       toast({
         title: "Primary keyword required",
@@ -207,13 +228,14 @@ export function ContentUpload({
         PrimaryKeyword: primaryKeyword,
       });
 
-      const response = await analyzeSEOWithPolling(request);
-      localStorage.setItem("RequestId", response?.requestId);
+      const response = await analyzeSEOWithPolling(request, analysisOptions);
       onAnalysisComplete?.(primaryKeyword, content, response, originalContent, request);
 
       toast({
         title: "Success",
-        description: "Content analyzed successfully",
+        description: isReanalyzeFlow
+          ? "Content reanalyzed successfully"
+          : "Content analyzed successfully",
       });
     } catch (error) {
       console.error("Analysis error:", error);
@@ -282,6 +304,11 @@ export function ContentUpload({
     setContent("");
     setFileName("");
     setPrimaryKeyword("");
+    clearCurrentAnalysisRequestId();
+    setAnalysisOptions({
+      reanalyze: false,
+      existingRequestId: null,
+    });
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (editableRef.current) editableRef.current.innerHTML = "";
 
@@ -302,14 +329,15 @@ export function ContentUpload({
               </div>
               <div className="mt-6 space-y-2">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#2563eb]">
-                  Centauri Analysis
+                  {isReanalyzeFlow ? "Centauri Reanalysis" : "Centauri Analysis"}
                 </p>
                 <h3 className="text-2xl font-semibold tracking-tight text-slate-900">
-                  Analyzing your content
+                  {isReanalyzeFlow ? "Reanalyzing your content" : "Analyzing your content"}
                 </h3>
                 <p className="text-sm leading-6 text-slate-600 sm:text-base">
-                  This usually takes 3 to 5 minutes. We&apos;re reviewing your draft for SEO,
-                  clarity, authority, and AI discoverability.
+                  {isReanalyzeFlow
+                    ? "We&apos;re reviewing your updated draft again for SEO, clarity, authority, and AI discoverability."
+                    : "This usually takes 3 to 5 minutes. We&apos;re reviewing your draft for SEO, clarity, authority, and AI discoverability."}
                 </p>
               </div>
             </div>
@@ -324,11 +352,14 @@ export function ContentUpload({
             <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                  Analyze your content with precision
+                  {isReanalyzeFlow
+                    ? "Reanalyze your updated content"
+                    : "Analyze your content with precision"}
                 </h2>
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-white/72 sm:text-base">
-                  Add your primary keyword, bring in your draft, and run a full Centauri analysis
-                  from one focused workspace.
+                  {isReanalyzeFlow
+                    ? "Your article has been updated. Run Centauri again to compare the revised draft with the previous analysis context."
+                    : "Add your primary keyword, bring in your draft, and run a full Centauri analysis from one focused workspace."}
                 </p>
               </div>
               {fileName ? (
@@ -488,7 +519,13 @@ export function ContentUpload({
                       disabled={!canAnalyze}
                       className="h-11 min-w-[180px] bg-[#1d4ed8] text-white shadow-sm hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:bg-slate-300"
                     >
-                      {isAnalyzing ? "Analyzing..." : "Analyze Content"}
+                      {isAnalyzing
+                        ? isReanalyzeFlow
+                          ? "Reanalyzing..."
+                          : "Analyzing..."
+                        : isReanalyzeFlow
+                          ? "Reanalyze Content"
+                          : "Analyze Content"}
                     </Button>
                   </div>
                 </div>

@@ -33,7 +33,7 @@ const IMPROVEMENT_COPY: Record<
     userAttribute: "Keyword Optimization",
     meaning: "how well the article incorporates important keywords without overstuffing",
   },
-  factualisolationScore: {
+  factualisolationscore: {
     userAttribute: "Factual Clarity",
     meaning: "whether the article clearly distinguishes facts from opinions and speculation",
   },
@@ -77,7 +77,7 @@ const IMPROVEMENT_COPY: Record<
     userAttribute: "Answer Accuracy",
     meaning: "whether the article gives clear, factual, and dependable answers",
   },
-  technicalClarityScore: {
+  technicalclarityScore: {
     userAttribute: "Technical Clarity",
     meaning: "how clearly technical concepts are explained for the target audience",
   },
@@ -88,6 +88,10 @@ const IMPROVEMENT_COPY: Record<
   factretrievalscore: {
     userAttribute: "Factual Accuracy",
     meaning: "whether the article's factual claims are correct and verifiable",
+  },
+  signaltonoisescore:{
+ userAttribute: "Content Focus",
+ meaning: "how well the article stays on topic without unnecessary fluff or tangents, which can dilute the main message and reduce reader engagement",
   },
   claritysynthesisscore: {
     userAttribute: "Content Cohesion",

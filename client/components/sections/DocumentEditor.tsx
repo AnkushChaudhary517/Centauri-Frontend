@@ -1,5 +1,15 @@
-import { useState, useEffect, useRef } from "react";
-import { X, Download, Info, Sparkles } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import {
+  X,
+  Bot,
+  Download,
+  Info,
+  Sparkles,
+  WandSparkles,
+  ArrowLeft,
+  CheckCheck,
+  ListFilter,
+} from "lucide-react";
 import { InteractiveEditor } from "./InteractiveEditor";
 import { RecommendationsList } from "./RecommendationsList";
 import type {
@@ -17,6 +27,7 @@ import { environment } from "@/config/environment";
 interface DocumentEditorProps {
   isOpen: boolean;
   onClose: () => void;
+  onStartNewAnalysis?: () => void;
   content: string;
   originalContent?: string;
   analysisRequest?: AnalysisRequest | null;
@@ -24,13 +35,31 @@ interface DocumentEditorProps {
   recommendationsLoading?: boolean;
   recommendationsError?: string | null;
   analysisResult?: AnalysisResponse | null;
-  onSave: (updatedContent: string) => void;
+  onSave: (data: {
+    updatedContent: string;
+    isEdited: boolean;
+    previousRequestId?: string | null;
+  }) => void;
   onExportReport?: () => void;
 }
+
+type AssistantView = "actions" | "selective";
+type RecommendationGroup = "overall" | "sectionLevel" | "sentenceLevel";
+
+type FlattenedRecommendation = {
+  id: string;
+  group: RecommendationGroup;
+  title: string;
+  description: string;
+  priority: string;
+  before: string;
+  after: string;
+};
 
 export function DocumentEditor({
   isOpen,
   onClose,
+  onStartNewAnalysis,
   onSave,
   content: initialContent,
   originalContent = "",
@@ -43,6 +72,11 @@ export function DocumentEditor({
 }: DocumentEditorProps) {
   const { toast } = useToast();
   const [content, setContent] = useState(initialContent);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+  const [assistantView, setAssistantView] = useState<AssistantView>("actions");
+  const [selectedAssistantRecommendationIds, setSelectedAssistantRecommendationIds] = useState<
+    string[]
+  >([]);
   const [leftWidth, setLeftWidth] = useState<number>(360);
   const [selectedRecommendationIndex, setSelectedRecommendationIndex] = useState<number | null>(
     recommendations?.sentenceLevel?.length ? 0 : null,
@@ -104,6 +138,106 @@ export function DocumentEditor({
     setContent(initialContent ?? "");
   }, [initialContent]);
 
+  useEffect(() => {
+    setIsChatbotOpen(false);
+    setAssistantView("actions");
+    setSelectedAssistantRecommendationIds([]);
+  }, [recommendations, recommendationsLoading, isOpen]);
+
+  const applyRecommendationSet = (
+    items: Array<{ before: string; after: string }>,
+    successLabel: string,
+  ) => {
+    const allRecommendations = items
+      .map((recommendation) => ({
+        before: recommendation.before ?? "",
+        after: recommendation.after ?? "",
+      }))
+      .filter((recommendation) => recommendation.before && recommendation.after)
+      .sort((left, right) => right.before.length - left.before.length);
+
+    if (!allRecommendations.length) return;
+
+    let totalApplications = 0;
+
+    setContent((currentContent) =>
+      allRecommendations.reduce((updatedContent, recommendation) => {
+        const { before, after } = recommendation;
+        if (!before || !after || before === after || !updatedContent.includes(before)) {
+          return updatedContent;
+        }
+
+        const occurrences = updatedContent.split(before).length - 1;
+        if (occurrences < 1) {
+          return updatedContent;
+        }
+
+        totalApplications += occurrences;
+        return updatedContent.split(before).join(after);
+      }, currentContent),
+    );
+
+    toast({
+      title: totalApplications > 0 ? "Recommendations applied" : "No matching text found",
+      description:
+        totalApplications > 0
+          ? `${successLabel} Applied ${totalApplications} recommendation change${totalApplications === 1 ? "" : "s"} to the article text.`
+          : "The recommendation examples did not match the current editor content.",
+    });
+
+    setIsChatbotOpen(false);
+  };
+
+  const applyAllRecommendations = () => {
+    applyRecommendationSet(
+      assistantRecommendations.map((recommendation) => ({
+        before: recommendation.before,
+        after: recommendation.after,
+      })),
+      "",
+    );
+  };
+
+  const toggleAssistantRecommendation = (recommendationId: string) => {
+    setSelectedAssistantRecommendationIds((current) =>
+      current.includes(recommendationId)
+        ? current.filter((id) => id !== recommendationId)
+        : [...current, recommendationId],
+    );
+  };
+
+  const toggleAssistantGroup = (group: RecommendationGroup) => {
+    const groupIds = assistantRecommendations
+      .filter((recommendation) => recommendation.group === group)
+      .map((recommendation) => recommendation.id);
+
+    setSelectedAssistantRecommendationIds((current) => {
+      const allSelected = groupIds.every((id) => current.includes(id));
+      if (allSelected) {
+        return current.filter((id) => !groupIds.includes(id));
+      }
+
+      return Array.from(new Set([...current, ...groupIds]));
+    });
+  };
+
+  const openSelectiveRecommendations = () => {
+    setAssistantView("selective");
+    setSelectedAssistantRecommendationIds(
+      assistantRecommendations.slice(0, Math.min(3, assistantRecommendations.length)).map((item) => item.id),
+    );
+  };
+
+  const applySelectedRecommendations = () => {
+    applyRecommendationSet(
+      selectedAssistantRecommendations.map((recommendation) => ({
+        before: recommendation.before,
+        after: recommendation.after,
+      })),
+      "Selected recommendations applied.",
+    );
+  };
+
   if (!isOpen) return null;
 
   const getFallbackRecommendationId = (recommendation: Recommendation) => {
@@ -120,12 +254,45 @@ export function DocumentEditor({
       id: recommendation.id || getFallbackRecommendationId(recommendation),
     }));
 
+  const recommendationsWithIds = useMemo(
+    () => ({
+      overall: addRecommendationIds(recommendations?.overall || []),
+      sectionLevel: addRecommendationIds(recommendations?.sectionLevel || []),
+      sentenceLevel: addRecommendationIds(recommendations?.sentenceLevel || []),
+    }),
+    [recommendations],
+  );
+
+  const assistantRecommendations = useMemo<FlattenedRecommendation[]>(
+    () =>
+      ([
+        ["overall", recommendationsWithIds.overall],
+        ["sectionLevel", recommendationsWithIds.sectionLevel],
+        ["sentenceLevel", recommendationsWithIds.sentenceLevel],
+      ] as Array<[RecommendationGroup, Recommendation[]]>).flatMap(([group, items]) =>
+        items.map((recommendation) => ({
+          id: recommendation.id || getFallbackRecommendationId(recommendation),
+          group,
+          title: recommendation.issue,
+          description: recommendation.whatToChange,
+          priority: recommendation.priority,
+          before: recommendation.examples?.bad ?? "",
+          after: recommendation.examples?.good ?? "",
+        })),
+      ),
+    [recommendationsWithIds],
+  );
+
+  const selectedAssistantRecommendations = assistantRecommendations.filter((recommendation) =>
+    selectedAssistantRecommendationIds.includes(recommendation.id),
+  );
+
   const activeList: Recommendation[] =
     activeTab === "overall"
-      ? addRecommendationIds(recommendations?.overall || [])
+      ? recommendationsWithIds.overall
       : activeTab === "sectionLevel"
-        ? addRecommendationIds(recommendations?.sectionLevel || [])
-        : addRecommendationIds(recommendations?.sentenceLevel || []);
+        ? recommendationsWithIds.sectionLevel
+        : recommendationsWithIds.sentenceLevel;
 
   const selectedRecommendation =
     selectedRecommendationIndex !== null ? activeList[selectedRecommendationIndex] : null;
@@ -136,6 +303,16 @@ export function DocumentEditor({
     (recommendations?.sentenceLevel?.length || 0);
   const metrics = getAnalysisMetrics(analysisResult);
   const hasRecommendations = totalRecommendations > 0;
+  const recommendationsReady = !recommendationsLoading && hasRecommendations;
+  const assistantGroups: Array<{
+    key: RecommendationGroup;
+    label: string;
+    helper: string;
+  }> = [
+    { key: "overall", label: "High impact", helper: "Broad improvements for the article" },
+    { key: "sectionLevel", label: "Section polish", helper: "Updates for headings and blocks" },
+    { key: "sentenceLevel", label: "Sentence fixes", helper: "Smaller wording improvements" },
+  ];
 
   const handleRecommendationFeedback = async (
     recommendation: Recommendation,
@@ -238,8 +415,17 @@ export function DocumentEditor({
   };
 
   const handleDone = () => {
-    onSave(content);
+    onSave({
+      updatedContent: content,
+      isEdited: content !== initialContent,
+      previousRequestId: analysisResult?.requestId ?? null,
+    });
     onClose();
+  };
+
+  const handleStartNewAnalysis = () => {
+    onClose();
+    onStartNewAnalysis?.();
   };
 
   return (
@@ -403,7 +589,226 @@ export function DocumentEditor({
                   ? "Preparing recommendations..."
                   : "No recommendations"}
             </div>
-            <div className="flex gap-3">
+            <div className="relative flex gap-3">
+              {environment.enableCentauriAssistant && isChatbotOpen ? (
+                <div className="absolute bottom-[calc(100%+14px)] right-0 z-30 w-[360px] overflow-hidden rounded-[24px] border border-[#d7e3f4] bg-[linear-gradient(180deg,#ffffff_0%,#f6faff_100%)] shadow-[0_24px_60px_rgba(15,23,42,0.16)]">
+                  <div className="border-b border-[#e2e8f0] bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_42%),linear-gradient(135deg,#eff6ff_0%,#ffffff_72%)] px-4 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1d4ed8] text-white shadow-[0_12px_24px_rgba(29,78,216,0.28)]">
+                          <Bot className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">Centauri Assistant</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-500">
+                            Apply article updates using the recommendation set already loaded in the editor.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsChatbotOpen(false)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-white hover:text-slate-700"
+                        aria-label="Close chatbot"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 px-4 py-4">
+                    {assistantView === "actions" ? (
+                      <>
+                        <div className="rounded-[18px] border border-[#dbeafe] bg-white px-4 py-3 shadow-sm">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2563eb]">
+                            Recommended
+                          </p>
+                          <button
+                            type="button"
+                            onClick={applyAllRecommendations}
+                            disabled={!recommendationsReady}
+                            className="mt-3 flex w-full items-start gap-3 rounded-[18px] border border-[#dbeafe] bg-[linear-gradient(180deg,#f8fbff_0%,#eef5ff_100%)] px-4 py-3 text-left transition hover:border-[#93c5fd] hover:bg-[linear-gradient(180deg,#eff6ff_0%,#e0eeff_100%)] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-[#dbeafe] text-[#1d4ed8]">
+                              <WandSparkles className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">
+                                Apply all the recommendations
+                              </p>
+                              <p className="mt-1 text-xs leading-5 text-slate-500">
+                                Best when you want the quickest cleanup using the full recommendation set.
+                              </p>
+                            </div>
+                          </button>
+                        </div>
+
+                        <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                            More Control
+                          </p>
+                          <button
+                            type="button"
+                            onClick={openSelectiveRecommendations}
+                            disabled={!recommendationsReady}
+                            className="mt-3 flex w-full items-start gap-3 rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-slate-300 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <div className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-slate-200 text-slate-700">
+                              <ListFilter className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">
+                                Apply selective recommendations
+                              </p>
+                              <p className="mt-1 text-xs leading-5 text-slate-500">
+                                Pick only the updates you want. We’ll start with a few suggested items so it feels manageable.
+                              </p>
+                            </div>
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => setAssistantView("actions")}
+                            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+                          >
+                            <ArrowLeft className="h-3.5 w-3.5" />
+                            Back
+                          </button>
+                          <div className="text-right">
+                            <p className="text-xs font-semibold text-slate-900">
+                              {selectedAssistantRecommendationIds.length} selected
+                            </p>
+                            <p className="text-[11px] text-slate-500">You can mix and match safely</p>
+                          </div>
+                        </div>
+
+                        <div className="rounded-[18px] border border-[#dbeafe] bg-[linear-gradient(180deg,#f8fbff_0%,#ffffff_100%)] px-4 py-3">
+                          <p className="text-sm font-semibold text-slate-900">
+                            Choose the updates you want to apply
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-slate-500">
+                            We grouped the recommendations by impact so you can scan them quickly without feeling overloaded.
+                          </p>
+                        </div>
+
+                        <div className="max-h-[320px] space-y-3 overflow-y-auto pr-1">
+                          {assistantGroups.map((group) => {
+                            const items = assistantRecommendations.filter(
+                              (recommendation) => recommendation.group === group.key,
+                            );
+
+                            if (!items.length) {
+                              return null;
+                            }
+
+                            const selectedCount = items.filter((recommendation) =>
+                              selectedAssistantRecommendationIds.includes(recommendation.id),
+                            ).length;
+
+                            return (
+                              <div
+                                key={group.key}
+                                className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 shadow-sm"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-semibold text-slate-900">{group.label}</p>
+                                    <p className="mt-1 text-xs leading-5 text-slate-500">{group.helper}</p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleAssistantGroup(group.key)}
+                                    className="rounded-full border border-[#dbeafe] bg-[#eff6ff] px-3 py-1 text-[11px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe]"
+                                  >
+                                    {selectedCount === items.length ? "Clear group" : "Select group"}
+                                  </button>
+                                </div>
+
+                                <div className="mt-3 space-y-2">
+                                  {items.map((recommendation) => {
+                                    const checked = selectedAssistantRecommendationIds.includes(
+                                      recommendation.id,
+                                    );
+
+                                    return (
+                                      <label
+                                        key={recommendation.id}
+                                        className={`flex cursor-pointer items-start gap-3 rounded-[16px] border px-3 py-3 transition ${
+                                          checked
+                                            ? "border-[#93c5fd] bg-[#f8fbff]"
+                                            : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100"
+                                        }`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          onChange={() =>
+                                            toggleAssistantRecommendation(recommendation.id)
+                                          }
+                                          className="mt-1 h-4 w-4 rounded border-slate-300 text-[#1d4ed8] focus:ring-[#1d4ed8]"
+                                        />
+                                        <div className="min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            <p className="text-sm font-semibold text-slate-900">
+                                              {recommendation.title}
+                                            </p>
+                                            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600">
+                                              {recommendation.priority}
+                                            </span>
+                                          </div>
+                                          <p className="mt-1 text-xs leading-5 text-slate-500">
+                                            {recommendation.description}
+                                          </p>
+                                        </div>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={applySelectedRecommendations}
+                          disabled={!selectedAssistantRecommendationIds.length || !recommendationsReady}
+                          className="flex w-full items-center justify-center gap-2 rounded-[18px] bg-[#1d4ed8] px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(29,78,216,0.22)] transition hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                        >
+                          <CheckCheck className="h-4 w-4" />
+                          Apply selected recommendations
+                        </button>
+                      </>
+                    )}
+
+                    <div className="rounded-[16px] border border-slate-200 bg-white/80 px-4 py-3">
+                      <p className="text-xs leading-6 text-slate-500">
+                        {recommendationsReady
+                          ? `${totalRecommendations} recommendations are ready to use in this article.`
+                          : "Recommendations are still loading. The assistant will activate once they are ready."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {environment.enableCentauriAssistant ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAssistantView("actions");
+                    setIsChatbotOpen((current) => !current);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-xl border border-[#d7e3f4] bg-[linear-gradient(180deg,#f8fbff_0%,#eef5ff_100%)] px-4 py-2.5 font-medium text-[#1d4ed8] shadow-sm transition hover:border-[#93c5fd] hover:bg-[linear-gradient(180deg,#eff6ff_0%,#e0eeff_100%)]"
+                >
+                  <Bot className="h-4 w-4" />
+                  Centauri Assistant
+                </button>
+              ) : null}
               <button
                 onClick={handleDownload}
                 disabled={recommendationsLoading}
@@ -411,6 +816,13 @@ export function DocumentEditor({
               >
                 <Download className="w-4 h-4" />
                 Download Recommendations
+              </button>
+              <button
+                type="button"
+                onClick={handleStartNewAnalysis}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 font-medium text-slate-800 transition hover:bg-slate-50"
+              >
+                Start New Analysis
               </button>
               <button
                 onClick={handleDone}

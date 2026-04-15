@@ -1,4 +1,5 @@
 import { Header } from "@/components/sections/Header";
+import { SeoHead } from "@/components/SeoHead";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -101,7 +102,7 @@ export default function PricingPage() {
           title: "Subscription activated",
           description:
             result.message ||
-            "Your Starter Plan is active now. You can return to the workspace and continue analyzing articles.",
+            "Your Paid Plan is active now. You can return to the workspace and continue analyzing articles.",
         });
         navigate("/", { replace: true });
         return;
@@ -161,6 +162,15 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#0b1324_0%,#12335f_16%,#eef5ff_16.1%,#ffffff_100%)]">
+      <SeoHead
+        title="Centauri Pricing | Content Optimization Subscription"
+        description="Choose a Centauri subscription to review content quality, SEO, and AI indexing before publishing."
+        canonical="https://getcentauri.com/pricing"
+        ogTitle="Centauri Pricing"
+        ogDescription="Choose a Centauri subscription to improve content before it goes live."
+        robots="noindex, nofollow"
+      />
+
       <Header isSignedIn={isAuthenticated} user={user} onLogout={logout} />
 
       <main className="pt-24 sm:pt-28">
@@ -263,7 +273,7 @@ export default function PricingPage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/65">
                   Subscription checkout
                 </p>
-                <h3 className="mt-4 text-3xl font-bold tracking-tight">Starter Plan</h3>
+                <h3 className="mt-4 text-3xl font-bold tracking-tight">Paid Plan</h3>
                 <p className="mt-3 text-sm leading-7 text-white/72">
                   One simple monthly subscription designed for teams who want to review content
                   before it goes live.
@@ -283,7 +293,7 @@ export default function PricingPage() {
                   disabled={isSubmitting}
                   className="mt-8 h-12 w-full rounded-full bg-white text-slate-900 hover:bg-slate-100"
                 >
-                  {isSubmitting ? "Activating subscription..." : "Subscribe to Starter Plan"}
+                  {isSubmitting ? "Activating subscription..." : "Subscribe to Paid Plan"}
                 </Button>
 
                 <p className="mt-4 text-center text-xs leading-6 text-white/60">
@@ -362,7 +372,7 @@ async function openRazorpayCheckout({
     const razorpay = new window.Razorpay({
       key: keyId,
       name: "Centauri",
-      description: "Starter Plan subscription",
+      description: "Paid Plan subscription",
       order_id: orderId,
       amount:amount,
       currency : currency,

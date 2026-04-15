@@ -8,6 +8,10 @@ export const getSeoAnalyzeUrl = (): string => {
   return environment.urls.seoAnalyzeUrl;
 };
 
+export const getSeoReanalyzeUrl = (): string => {
+  return environment.urls.seoReanalyzeUrl;
+};
+
 export const getRecommendationsUrl = (): string => {
   return environment.urls.recommendationsUrl;
 };

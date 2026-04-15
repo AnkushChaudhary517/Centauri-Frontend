@@ -9,6 +9,7 @@ import {
   setStoredUser,
   isTokenValid,
   getUserFromToken,
+  SESSION_EXPIRED_EVENT,
   type AuthSession,
   type AuthUser,
 } from './AuthApi';
@@ -42,6 +43,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(restoredUser);
     setIsAuthenticated(true);
     void refreshAccountData();
+  }, []);
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      clearTokens();
+      setStoredUser(null);
+      setUser(null);
+      setIsAuthenticated(false);
+    };
+
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
   }, []);
 
   const refreshAccountData = async () => {

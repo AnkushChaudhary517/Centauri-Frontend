@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Routes, Route, useNavigate, useSearchParams, HashRouter } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate, useSearchParams } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { Toaster } from "./components/ui/toaster";
@@ -22,7 +22,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <OAuthRedirectHandler>
-      <HashRouter>
+      <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/pricing" element={<PricingPage />} />
@@ -30,7 +30,7 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </HashRouter>
+      </BrowserRouter>
       </OAuthRedirectHandler>
       </AuthProvider>
     </TooltipProvider>
@@ -43,9 +43,8 @@ function OAuthCallback() {
   const { handleOAuthCallback } = useAuth();
 
   useEffect(() => {
-    // Get token and params from hash route (HashRouter)
     const token = searchParams.get("token") || searchParams.get("access_token");
-    const provider = searchParams.get("provider") || "google"; // Default to google
+    const provider = searchParams.get("provider") || "google";
     const error = searchParams.get("error");
     const errorDescription = searchParams.get("error_description");
 
@@ -83,7 +82,6 @@ function OAuthCallback() {
 
 function OAuthRedirectHandler({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    // Check if we're on a backend OAuth callback URL (e.g., /api/v1/auth/callback)
     const pathname = window.location.pathname;
     const search = window.location.search;
     
@@ -94,15 +92,17 @@ function OAuthRedirectHandler({ children }: { children: React.ReactNode }) {
       const error = urlParams.get("error");
       const errorDescription = urlParams.get("error_description");
       
-      // Build hash route with params
+      // Normalize callback params onto the app route so React Router can handle them.
       const hashParams = new URLSearchParams();
       if (token) hashParams.set("token", token);
       if (provider) hashParams.set("provider", provider);
       if (error) hashParams.set("error", error);
       if (errorDescription) hashParams.set("error_description", errorDescription);
       
-      const hashRoute = `/#/auth/callback${hashParams.toString() ? '?' + hashParams.toString() : ''}`;
-      window.location.replace(hashRoute);
+      const callbackRoute = `/auth/callback${hashParams.toString() ? "?" + hashParams.toString() : ""}`;
+      if (pathname !== "/auth/callback" || search !== `?${hashParams.toString()}`) {
+        window.location.replace(callbackRoute);
+      }
     }
   }, []);
   

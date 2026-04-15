@@ -248,6 +248,11 @@ const CURRENT_SUBSCRIPTION_STORAGE_KEY = 'currentSubscription';
 const REMAINING_CREDITS_STORAGE_KEY = 'remainingCredits';
 const SUBSCRIPTION_UPDATED_EVENT = 'centauri:subscription-updated';
 const CREDITS_UPDATED_EVENT = 'centauri:credits-updated';
+export const SESSION_EXPIRED_EVENT = 'centauri:session-expired';
+export const SESSION_EXPIRED_MESSAGE_STORAGE_KEY = 'centauri:session-expired-message';
+const SESSION_EXPIRED_MESSAGE = 'Your session has expired. Please log in again.';
+
+let isHandlingExpiredSession = false;
 
 function decodeJwtPayload(token: string): Record<string, any> | null {
   try {
@@ -350,7 +355,7 @@ async function postJson<T>(endpoint: string, body: unknown): Promise<T> {
     'Content-Type': 'application/json',
   };
 
-  const token = getToken();
+  const token = ensureSessionIsValid();
   if (token) {
     finalHeaders['Authorization'] = `Bearer ${token}`;
   }
@@ -362,6 +367,11 @@ async function postJson<T>(endpoint: string, body: unknown): Promise<T> {
   });
 
   const data = await response.json().catch(() => null);
+
+  if (response.status === 401 && token) {
+    handleExpiredSession();
+    throw new Error(SESSION_EXPIRED_MESSAGE);
+  }
 
   if (!response.ok) {
     throw buildApiError(data);
@@ -446,8 +456,7 @@ export function getStoredRemainingCredits(): RemainingCredits | null {
 export const getToken = () => {
   const token = localStorage.getItem('token') || localStorage.getItem('authToken');
   if (token && !isTokenValid(token)) {
-    clearTokens();
-    setStoredUser(null);
+    handleExpiredSession();
     return null;
   }
   return token;
@@ -461,6 +470,53 @@ export const clearTokens = () => {
   localStorage.removeItem(CURRENT_SUBSCRIPTION_STORAGE_KEY);
   localStorage.removeItem(REMAINING_CREDITS_STORAGE_KEY);
 };
+
+export function handleExpiredSession(message: string = SESSION_EXPIRED_MESSAGE): void {
+  clearTokens();
+  setStoredUser(null);
+  sessionStorage.setItem(SESSION_EXPIRED_MESSAGE_STORAGE_KEY, message);
+
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: { message } }));
+
+  if (isHandlingExpiredSession) {
+    return;
+  }
+
+  isHandlingExpiredSession = true;
+
+  const routeToLogin = () => {
+    window.location.assign('/');
+    isHandlingExpiredSession = false;
+  };
+
+  if (window.location.pathname !== '/') {
+    routeToLogin();
+    return;
+  }
+
+  window.setTimeout(() => {
+    isHandlingExpiredSession = false;
+  }, 0);
+}
+
+export function ensureSessionIsValid(): string | null {
+  const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+
+  if (!token) {
+    return null;
+  }
+
+  if (!isTokenValid(token)) {
+    handleExpiredSession();
+    return null;
+  }
+
+  return token;
+}
 
 function normalizeCurrentSubscription(
   payload: SubscriptionApiResponse | Record<string, any> | null | undefined,
@@ -576,7 +632,7 @@ export async function apiCall<T>(
   };
 
   // Always include Bearer token if available (after login)
-  const token = getToken();
+  const token = ensureSessionIsValid();
   if (token) {
     finalHeaders['Authorization'] = `Bearer ${token}`;
   }
@@ -594,6 +650,11 @@ export async function apiCall<T>(
   });
 
   const data = await response.json().catch(() => null);
+
+  if (response.status === 401 && token) {
+    handleExpiredSession();
+    throw new Error(SESSION_EXPIRED_MESSAGE);
+  }
 
   if (!response.ok) {
     throw buildApiError(data);
@@ -638,7 +699,7 @@ export const authAPI = {
       const session = buildMockSessionFromCurrentUser();
       setTokens(session.token, session.refreshToken);
       setStoredUser(session.user);
-      window.location.hash = "#/";
+      window.location.assign("/");
       return;
     }
     const authUrl = new URL(`${API_BASE_URL}/auth/google`);

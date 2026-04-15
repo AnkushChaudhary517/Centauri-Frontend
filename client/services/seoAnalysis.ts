@@ -12,6 +12,8 @@ export interface AnalysisRequest {
       Locale: string;
       CitationRules: string;
     };
+    RequestId?: string;
+    CorrelationId?: string;
   }
   export interface Recommendation {
     id?: string;
@@ -34,6 +36,8 @@ export interface RecommendationItem{
   export interface RecommendationFeedbackPayload {
     recommendationId: string;
     requestId?: string;
+    RequestId?: string;
+    CorrelationId?: string;
     feedback: "up" | "down";
     issue: string;
     whatToChange: string;
@@ -86,10 +90,16 @@ export interface RecommendationItem{
   
 // API Configuration
 import { getMockAnalysisResponse, getMockRecommendationsResponse, isMockApiEnabled } from '@/services/mockApi';
-import { getApiBaseUrl, getSeoAnalyzeUrl, getRecommendationsUrl } from '@/utils/ApiConfig';
-import { getToken } from '@/utils/AuthApi';
+import { getSeoAnalyzeUrl, getSeoReanalyzeUrl, getRecommendationsUrl } from '@/utils/ApiConfig';
+import { ensureSessionIsValid, handleExpiredSession } from '@/utils/AuthApi';
+
+export interface AnalyzeRequestOptions {
+  reanalyze?: boolean;
+  existingRequestId?: string | null;
+}
 
 const GENERIC_FEEDBACK_ERROR_MESSAGE = "We couldn't save your feedback right now. Please try again.";
+const ANALYSIS_REQUEST_ID_STORAGE_KEY = "RequestId";
 
 function getFeedbackErrorMessage(data: unknown): string {
   if (!data || typeof data !== "object") {
@@ -107,6 +117,55 @@ function getFeedbackErrorMessage(data: unknown): string {
   }
 
   return GENERIC_FEEDBACK_ERROR_MESSAGE;
+}
+
+export function getCurrentAnalysisRequestId(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return localStorage.getItem(ANALYSIS_REQUEST_ID_STORAGE_KEY);
+}
+
+export function setCurrentAnalysisRequestId(requestId: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  localStorage.setItem(ANALYSIS_REQUEST_ID_STORAGE_KEY, requestId);
+}
+
+export function clearCurrentAnalysisRequestId(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  localStorage.removeItem(ANALYSIS_REQUEST_ID_STORAGE_KEY);
+}
+
+function generateAnalysisRequestId(): string {
+  return crypto.randomUUID();
+}
+
+function resolveAnalysisRequestId(options?: AnalyzeRequestOptions): string {
+  const requestId =
+    options?.reanalyze && options.existingRequestId
+      ? options.existingRequestId
+      : generateAnalysisRequestId();
+
+  setCurrentAnalysisRequestId(requestId);
+  return requestId;
+}
+
+function withRequestTracking<T extends object>(
+  payload: T,
+  requestId: string,
+): T & { RequestId: string; CorrelationId: string } {
+  return {
+    ...payload,
+    RequestId: requestId,
+    CorrelationId: requestId,
+  };
 }
   // Parse file content to extract metadata
   export function parseFileContent(content: string): Partial<AnalysisRequest> {
@@ -155,70 +214,108 @@ function getFeedbackErrorMessage(data: unknown): string {
   }
   
   
-  export async function analyzeSEO(request: AnalysisRequest): Promise<AnalysisResponse> {
+  function buildAnalysisHeaders(requestId: string): Record<string, string> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      RequestId: requestId,
+      CorrelationId: requestId,
+    };
+
+    const token = ensureSessionIsValid();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    return headers;
+  }
+
+  function getAnalysisUrl(options?: AnalyzeRequestOptions): string {
+    return options?.reanalyze && options.existingRequestId
+      ? getSeoReanalyzeUrl()
+      : getSeoAnalyzeUrl();
+  }
+
+  export async function analyzeSEO(
+    request: AnalysisRequest,
+    options?: AnalyzeRequestOptions,
+  ): Promise<AnalysisResponse> {
     try {
+      const requestId = resolveAnalysisRequestId(options);
+      const trackedRequest = withRequestTracking(request, requestId);
+
       if (isMockApiEnabled()) {
-        return getMockAnalysisResponse(request);
+        return getMockAnalysisResponse(trackedRequest, {
+          ...options,
+          existingRequestId: requestId,
+        });
       }
 
-      const url = getSeoAnalyzeUrl();
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json"
-      };
-      
-      // Include Bearer token if available
-      const token = getToken();
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
+      const url = getAnalysisUrl(options);
+      const headers = buildAnalysisHeaders(requestId);
+      const token = headers.Authorization;
       
       const response = await fetch(url, {
         method: "POST",
         headers,
-        body: JSON.stringify(request),
+        body: JSON.stringify(trackedRequest),
       });
+
+      if (response.status === 401 && token) {
+        handleExpiredSession();
+        throw new Error("Your session has expired. Please log in again.");
+      }
   
       if (!response.ok) {
         throw new Error(`API error: ${response.status} ${response.statusText}`);
       }
   
       const data = await response.json();
-      return data as AnalysisResponse;
+      const result = data as AnalysisResponse;
+      return {
+        ...result,
+        requestId: result.requestId || requestId,
+      };
     } catch (error) {
       console.error("SEO analysis error:", error);
       throw error;
     }
   }
 
-  export async function analyzeSEOWithPolling(request: AnalysisRequest): Promise<AnalysisResponse> {
+  export async function analyzeSEOWithPolling(
+    request: AnalysisRequest,
+    options?: AnalyzeRequestOptions,
+  ): Promise<AnalysisResponse> {
     try {
+      const requestId = resolveAnalysisRequestId(options);
+      const trackedRequest = withRequestTracking(request, requestId);
+
       if (isMockApiEnabled()) {
-        return getMockAnalysisResponse(request);
+        return getMockAnalysisResponse(trackedRequest, {
+          ...options,
+          existingRequestId: requestId,
+        });
       }
 
-      const url = getSeoAnalyzeUrl();
+      const url = getAnalysisUrl(options);
 
       // Poll for completion
       const maxAttempts = 30; // 5 minutes / 10 seconds = 30 attempts
       let attempts = 0;
 
       while (attempts < maxAttempts) {
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json"
-        };
+        const headers = buildAnalysisHeaders(requestId);
+        const token = headers.Authorization;
         
-        // Include Bearer token if available
-        const token = getToken();
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
-        
-        // Call the same analyze endpoint
         const response = await fetch(url, {
           method: "POST",
           headers,
-          body: JSON.stringify(request),
+          body: JSON.stringify(trackedRequest),
         });
+
+        if (response.status === 401 && token) {
+          handleExpiredSession();
+          throw new Error("Your session has expired. Please log in again.");
+        }
 
         if (!response.ok) {
           throw new Error(`API error: ${response.status} ${response.statusText}`);
@@ -227,7 +324,11 @@ function getFeedbackErrorMessage(data: unknown): string {
         const data = await response.json();
 
         if (data.isCompleted) {
-          return data as AnalysisResponse;
+          const result = data as AnalysisResponse;
+          return {
+            ...result,
+            requestId: result.requestId || requestId,
+          };
         }
 
         // Wait 10 seconds before next attempt
@@ -243,15 +344,20 @@ function getFeedbackErrorMessage(data: unknown): string {
   }
 
   export async function getRecommendations(request: AnalysisRequest): Promise<RecommendationResponse> {
+    const requestId = getCurrentAnalysisRequestId() || request.RequestId || generateAnalysisRequestId();
+    setCurrentAnalysisRequestId(requestId);
+    const trackedRequest = withRequestTracking(request, requestId);
+
     if (isMockApiEnabled()) {
       return getMockRecommendationsResponse();
     }
 
     const url = getRecommendationsUrl();
-    const token = getToken();
+    const token = ensureSessionIsValid();
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      RequestId: localStorage.getItem("RequestId") ?? "",
+      RequestId: requestId,
+      CorrelationId: requestId,
     };
 
     if (token) {
@@ -261,8 +367,13 @@ function getFeedbackErrorMessage(data: unknown): string {
     const response = await fetch(url, {
       method: "POST",
       headers,
-      body: JSON.stringify(request),
+      body: JSON.stringify(trackedRequest),
     });
+
+    if (response.status === 401 && token) {
+      handleExpiredSession();
+      throw new Error("Your session has expired. Please log in again.");
+    }
 
     if (!response.ok) {
       throw new Error(`API error: ${response.status} ${response.statusText}`);
@@ -274,19 +385,35 @@ function getFeedbackErrorMessage(data: unknown): string {
   export async function submitRecommendationFeedback(
     payload: RecommendationFeedbackPayload,
   ): Promise<{ success?: boolean; message?: string }> {
+    const requestId =
+      payload.requestId ||
+      payload.RequestId ||
+      getCurrentAnalysisRequestId() ||
+      generateAnalysisRequestId();
+    setCurrentAnalysisRequestId(requestId);
+
+    const trackedPayload = {
+      ...payload,
+      requestId,
+      RequestId: requestId,
+      CorrelationId: requestId,
+    };
+
     if (isMockApiEnabled()) {
       return (await import("@/services/mockApi")).handleMockApiRequest(
         "/Seo/recommendations/feedback",
         {
           method: "POST",
-          body: payload,
+          body: trackedPayload,
         },
       );
     }
 
-    const token = getToken();
+    const token = ensureSessionIsValid();
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      RequestId: requestId,
+      CorrelationId: requestId,
     };
 
     if (token) {
@@ -297,8 +424,13 @@ function getFeedbackErrorMessage(data: unknown): string {
     const response = await fetch(`${baseUrl}/feedback`, {
       method: "POST",
       headers,
-      body: JSON.stringify(payload),
+      body: JSON.stringify(trackedPayload),
     });
+
+    if (response.status === 401 && token) {
+      handleExpiredSession();
+      throw new Error("Your session has expired. Please log in again.");
+    }
 
     if (!response.ok) {
       const data = await response.json().catch(() => null);

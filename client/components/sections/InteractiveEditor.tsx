@@ -29,6 +29,14 @@ export function InteractiveEditor({
   const contentRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
 
+  const escapeForRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  const buildWholeWordRegex = (value: string, global = true) => {
+    const escaped = escapeForRegex(value.trim());
+    const flags = global ? "gu" : "u";
+    return new RegExp(`(^|[^\\p{L}\\p{N}_])(${escaped})(?=$|[^\\p{L}\\p{N}_])`, flags);
+  };
+
   useEffect(() => {
     if (contentRef.current && contentRef.current.innerHTML !== content) {
       contentRef.current.innerHTML = content;
@@ -92,24 +100,26 @@ export function InteractiveEditor({
 
     if (highlightMode === "sentence") {
       const fullText = contentRef.current.innerText || "";
-      if (fullText.indexOf(highlightText) === -1) return;
+      const testRegex = buildWholeWordRegex(highlightText, false);
+      if (!testRegex.test(fullText)) return;
 
-      const escaped = highlightText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const regex = new RegExp(escaped, "g");
+      const regex = buildWholeWordRegex(highlightText);
 
       const walker = document.createTreeWalker(contentRef.current, NodeFilter.SHOW_TEXT, null);
       const nodes: Node[] = [];
       let node: Node | null = null;
       while ((node = walker.nextNode())) {
+        regex.lastIndex = 0;
         if (regex.test(node.textContent || "")) nodes.push(node);
       }
 
       nodes.forEach((textNode) => {
         const span = document.createElement("span");
         const text = textNode.textContent || "";
+        regex.lastIndex = 0;
         span.innerHTML = text.replace(
           regex,
-          '<span class="highlighted-text" style="background-color:#fde68a;font-weight:600;padding:0 4px;border-radius:4px;">$&</span>',
+          '$1<span class="highlighted-text" style="background-color:#fde68a;font-weight:600;padding:0 4px;border-radius:4px;">$2</span>',
         );
         textNode.parentNode!.replaceChild(span, textNode);
       });

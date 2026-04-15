@@ -294,14 +294,22 @@ export async function handleMockApiRequest<T>(
   }
 }
 
-export async function getMockAnalysisResponse(request: AnalysisRequest): Promise<AnalysisResponse> {
+export async function getMockAnalysisResponse(
+  request: AnalysisRequest,
+  options?: { reanalyze?: boolean; existingRequestId?: string | null },
+): Promise<AnalysisResponse> {
   await delay(900);
 
   const keywordSeed = request.PrimaryKeyword?.length || 8;
   const baseScore = Math.max(62, Math.min(88, 60 + keywordSeed));
+  const requestId =
+    request.RequestId ||
+    request.CorrelationId ||
+    options?.existingRequestId ||
+    `mock-request-id-${Date.now()}`;
 
   return {
-    requestId: "mock-request-id",
+    requestId,
     status: "Completed",
     seoScore: baseScore,
     isCompleted: true,

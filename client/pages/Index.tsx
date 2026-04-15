@@ -6,13 +6,27 @@ import { GrowthFaqSpotlight } from "@/components/sections/GrowthFaqSpotlight";
 import { Header } from "@/components/sections/Header";
 import { Hero } from "@/components/sections/Hero";
 import { HowItWorks } from "@/components/sections/HowItWorks";
+import { SeoHead } from "@/components/SeoHead";
 import ScoreGauges from "@/components/sections/ScoreGauges";
 import TabsWithSvg from "@/components/sections/TabsWithSvg";
+import { useToast } from "@/components/ui/use-toast";
 import type { AnalysisRequest, AnalysisResponse } from "@/services/seoAnalysis";
-import { authAPI } from "@/utils/AuthApi";
+import { clearCurrentAnalysisRequestId } from "@/services/seoAnalysis";
+import {
+  authAPI,
+  SESSION_EXPIRED_EVENT,
+  SESSION_EXPIRED_MESSAGE_STORAGE_KEY,
+} from "@/utils/AuthApi";
 import { useAuth } from "@/utils/AuthContext";
 
 export default function Index() {
+  const [article, setArticle] = useState({
+    content: "",
+    keyword: "",
+    shouldReanalyze: false,
+    previousRequestId: null as string | null,
+    pendingUpload: false,
+  });
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
   const [analysisRequest, setAnalysisRequest] = useState<AnalysisRequest | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -20,9 +34,9 @@ export default function Index() {
   const [primaryKeyword, setPrimaryKeyword] = useState("");
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
-  const [article, setArticle] = useState({ content: "", keyword: "" });
   const [view, setView] = useState<"login" | "register">("login");
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
+  const { toast } = useToast();
 
   const scoreRef = useRef<HTMLDivElement | null>(null);
   const uploadRef = useRef<HTMLDivElement | null>(null);
@@ -34,21 +48,30 @@ export default function Index() {
     setIsAuthDialogOpen(true);
   };
 
-  const handleSave = (newData: { updatedContent: string; keyword: string }) => {
+  const handleSave = (newData: {
+    updatedContent: string;
+    keyword: string;
+    isEdited: boolean;
+    previousRequestId?: string | null;
+  }) => {
+    const previousRequestId = newData.previousRequestId ?? null;
     setArticle({
       content: newData.updatedContent,
       keyword: newData.keyword,
+      shouldReanalyze: Boolean(previousRequestId),
+      previousRequestId,
+      pendingUpload: true,
     });
   };
 
   useEffect(() => {
-    if (article.content) {
+    if (article.pendingUpload) {
       setIsMetricLoading(true);
       setTimeout(() => {
         uploadRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 100);
     }
-  }, [article]);
+  }, [article.pendingUpload]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -74,6 +97,37 @@ export default function Index() {
     }
   }, [analysisResult, isLoading]);
 
+  useEffect(() => {
+    const showSessionExpiredMessage = () => {
+      const message =
+        sessionStorage.getItem(SESSION_EXPIRED_MESSAGE_STORAGE_KEY) ||
+        "Your session has expired. Please log in again.";
+
+      sessionStorage.removeItem(SESSION_EXPIRED_MESSAGE_STORAGE_KEY);
+      setView("login");
+      setIsAuthDialogOpen(true);
+      toast({
+        title: "Session expired",
+        description: message,
+        variant: "destructive",
+      });
+    };
+
+    const handleSessionExpired = () => {
+      showSessionExpiredMessage();
+    };
+
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+
+    if (sessionStorage.getItem(SESSION_EXPIRED_MESSAGE_STORAGE_KEY)) {
+      showSessionExpiredMessage();
+    }
+
+    return () => {
+      window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    };
+  }, [toast]);
+
   const handleLogout = async () => {
     setAnalysisResult(null);
     setAnalysisRequest(null);
@@ -82,7 +136,14 @@ export default function Index() {
     setPrimaryKeyword("");
     setContent("");
     setOriginalContent("");
-    setArticle({ content: "", keyword: "" });
+    clearCurrentAnalysisRequestId();
+    setArticle({
+      content: "",
+      keyword: "",
+      shouldReanalyze: false,
+      previousRequestId: null,
+      pendingUpload: false,
+    });
     await logout();
     setView("login");
   };
@@ -101,6 +162,12 @@ export default function Index() {
     setContent(nextContent ?? "");
     setOriginalContent(nextOriginalContent ?? "");
     setAnalysisRequest(nextAnalysisRequest);
+    setArticle((current) => ({
+      ...current,
+      shouldReanalyze: false,
+      previousRequestId: result.requestId ?? null,
+      pendingUpload: false,
+    }));
     void authAPI.refreshRemainingCredits().catch((error) => {
       console.error("Remaining credits refresh failed:", error);
     });
@@ -111,6 +178,7 @@ export default function Index() {
   };
 
   const handleMetricLoading = () => {
+    clearCurrentAnalysisRequestId();
     setIsLoading(true);
     setIsMetricLoading(true);
   };
@@ -128,6 +196,20 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-white">
+      <SeoHead
+        title="AI Content Optimization Tool for SEO & AI Indexing | Centauri"
+        description="Improve SEO, AI indexing, and content quality with Centauri. Get actionable recommendations, not just scores."
+        canonical="https://getcentauri.com/"
+        ogTitle="Centauri - AI Content Optimization Tool"
+        ogDescription="Improve SEO & AI indexing with actionable insights."
+        schema={{
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "Centauri",
+          applicationCategory: "SEO Tool",
+        }}
+      />
+
       <Header
         isSignedIn={isAuthenticated}
         user={user}
@@ -171,6 +253,10 @@ export default function Index() {
                 onAnalysisError={handleAnalysisError}
                 initialContent={article.content}
                 initialKeyword={article.keyword}
+                reanalyzeContext={{
+                  shouldReanalyze: article.shouldReanalyze,
+                  previousRequestId: article.previousRequestId,
+                }}
               />
             </div>
           ) : null}

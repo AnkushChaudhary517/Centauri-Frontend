@@ -19,17 +19,13 @@ interface ScoreGaugesProps {
   originalContent?: string;
   analysisRequest?: AnalysisRequest | null;
   handleMetricLoading(): void;
-  onEditorSave?: (data: { updatedContent: string; keyword: string }) => void;
+  onEditorSave?: (data: {
+    updatedContent: string;
+    keyword: string;
+    isEdited: boolean;
+    previousRequestId?: string | null;
+  }) => void;
   onEditorClose?: () => void;
-}
-
-interface MetricItem {
-  label: string;
-  value: number;
-  max: number;
-  color: string;
-  showPercentage: boolean;
-  description: string;
 }
 
 interface ScoreGaugeProps extends MetricItem {}
@@ -131,11 +127,17 @@ export default function ScoreGauges({
 
   const metrics = getAnalysisMetrics(analysisResult);
 
-  const handleSaveFromEditor = (updatedHtml: string) => {
+  const handleSaveFromEditor = (data: {
+    updatedContent: string;
+    isEdited: boolean;
+    previousRequestId?: string | null;
+  }) => {
     if (onEditorSave) {
       onEditorSave({
-        updatedContent: updatedHtml,
+        updatedContent: data.updatedContent,
         keyword: primaryKeyword ?? "",
+        isEdited: data.isEdited,
+        previousRequestId: data.previousRequestId,
       });
     }
   };
@@ -143,7 +145,7 @@ export default function ScoreGauges({
   return (
     <div className="metrics-display-section bg-white py-8 sm:py-12 lg:py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {analysisResult && recommendationsError ? (
+        {analysisResult && recommendationsError && !isEditorOpen ? (
           <div className="score-shell">
             <div className="flex flex-col gap-5 px-6 py-10 sm:px-10 sm:py-12">
               <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eff6ff] text-[#2563eb]">
@@ -168,7 +170,7 @@ export default function ScoreGauges({
           </div>
         ) : null}
 
-        {analysisResult && !recommendationsError ? (
+        {analysisResult ? (
           <div className="score-shell">
             <div className="score-buttons">
               <div className="score-summary">
@@ -201,6 +203,7 @@ export default function ScoreGauges({
             {isEditorOpen ? (
               <DocumentEditor
                 isOpen={isEditorOpen}
+                onStartNewAnalysis={handleMetricLoading}
                 onSave={handleSaveFromEditor}
                 onClose={() => {
                   setIsEditorOpen(false);
