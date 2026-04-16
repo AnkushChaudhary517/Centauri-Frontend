@@ -11,7 +11,7 @@ type EnvironmentUrls = {
 const API_ENVIRONMENT: ApiEnvironment = "production";
 const USE_MOCK_API = false;
 const ENABLE_RECOMMENDATION_FEEDBACK = true;
-const ENABLE_CENTAURI_ASSISTANT = true;
+const ENABLE_CENTAURI_ASSISTANT = false;
 
 const ENVIRONMENT_URLS: Record<ApiEnvironment, EnvironmentUrls> = {
   localhost: {

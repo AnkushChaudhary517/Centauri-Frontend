@@ -337,7 +337,7 @@ export function ContentUpload({
                 <p className="text-sm leading-6 text-slate-600 sm:text-base">
                   {isReanalyzeFlow
                     ? "We&apos;re reviewing your updated draft again for SEO, clarity, authority, and AI discoverability."
-                    : "This usually takes 3 to 5 minutes. We&apos;re reviewing your draft for SEO, clarity, authority, and AI discoverability."}
+                    : "This usually takes 3 to 5 minutes. We are reviewing your draft for SEO, clarity, authority, and AI discoverability."}
                 </p>
               </div>
             </div>

@@ -89,6 +89,17 @@ export interface UpdateProfilePayload {
   password: string;
 }
 
+export interface SupportQueryPayload {
+  topicKey: string;
+  topicLabel: string;
+  message: string;
+  pagePath: string;
+  pageTitle: string;
+  email?: string;
+  userId?: string;
+  metadata?: Record<string, unknown>;
+}
+
 type ApiErrorPayload = {
   success?: boolean;
   data?: unknown;
@@ -978,6 +989,17 @@ export const authAPI = {
     clearTokens();
     return response;
   },
+  submitSupportQuery: async (payload: SupportQueryPayload) => {
+    return postJsonWithFallback<{ success?: boolean; message?: string }>(
+      [
+        '/support/query',
+        '/assistant/query',
+        '/support/contact',
+        '/help/query',
+      ],
+      payload,
+    );
+  },
 };
 
 function buildMockSessionFromCurrentUser(): AuthSession {
@@ -994,8 +1016,7 @@ function buildMockSessionFromCurrentUser(): AuthSession {
   };
 }
 
-function buildFrontendAuthRedirectUri(): string {
-  return `${API_BASE_URL}/auth/callback`;
+function buildFrontendAuthRedirectUri(): string {  return `${API_BASE_URL}/auth/callback`;
 }
 
 export async function login(

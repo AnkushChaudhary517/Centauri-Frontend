@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { SearchX } from "lucide-react";
 import { SeoHead } from "@/components/SeoHead";
 import { Button } from "@/components/ui/button";
+import { Footer } from "@/components/sections/Footer";
 
 const NotFound = () => {
   const location = useLocation();
@@ -15,7 +16,7 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#dbeafe_0%,#eff6ff_35%,#ffffff_75%)] px-6 py-20">
+    <div className="flex min-h-screen flex-col bg-[radial-gradient(circle_at_top,#dbeafe_0%,#eff6ff_35%,#ffffff_75%)] px-6 py-20">
       <SeoHead
         title="Page Not Found | Centauri"
         description="The page you requested could not be found."
@@ -23,7 +24,7 @@ const NotFound = () => {
         robots="noindex, nofollow"
       />
 
-      <div className="mx-auto flex min-h-[70vh] max-w-3xl items-center justify-center">
+      <div className="mx-auto flex min-h-[70vh] max-w-3xl flex-1 items-center justify-center">
         <div className="w-full rounded-[32px] border border-slate-200 bg-white/90 p-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.10)] backdrop-blur sm:p-12">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#dbeafe]">
             <SearchX className="h-8 w-8 text-[#2563eb]" />
@@ -48,6 +49,8 @@ const NotFound = () => {
           </div>
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 };

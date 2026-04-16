@@ -1,4 +1,5 @@
 import { Header } from "@/components/sections/Header";
+import { Footer } from "@/components/sections/Footer";
 import { SeoHead } from "@/components/SeoHead";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -338,6 +339,8 @@ export default function PricingPage() {
             </div>
           </div>
         </section>
+
+        <Footer />
       </main>
     </div>
   );

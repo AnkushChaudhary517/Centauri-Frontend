@@ -289,6 +289,15 @@ export async function handleMockApiRequest<T>(
         message: "Recommendation feedback recorded.",
       } as T;
 
+    case "/support/query":
+    case "/assistant/query":
+    case "/support/contact":
+    case "/help/query":
+      return {
+        success: true,
+        message: "We received your query and will reply by email shortly.",
+      } as T;
+
     default:
       throw new Error(`Mock API route not implemented for ${endpoint}`);
   }

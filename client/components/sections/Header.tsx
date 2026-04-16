@@ -352,13 +352,13 @@ function AccountMenuPanel({
         useDropdownItem={useDropdownItems}
         compact={compact}
       />
-      <MenuAction
+      {/* <MenuAction
         icon={<UserRound className="h-4 w-4 text-slate-500" />}
         label="Account Details"
         onSelect={onAccountDetails}
         useDropdownItem={useDropdownItems}
         compact={compact}
-      />
+      /> */}
       {/* <MenuAction
         icon={<Trash2 className="h-4 w-4" />}
         label={isRemovingAccount ? "Removing Account..." : "Remove Account"}
