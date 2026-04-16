@@ -12,6 +12,7 @@ import { CentauriSupportAssistant } from "./components/sections/CentauriSupportA
 import { AuthProvider, useAuth } from "./utils/AuthContext";
 import { useEffect } from "react";
 import { authAPI } from "./utils/AuthApi";
+import { isTokenValid } from "./utils/AuthApi";
 import PricingPage from "./pages/Pricing";
 
 const queryClient = new QueryClient();
@@ -68,26 +69,15 @@ function OAuthCallback() {
     if (token) {
       console.log("OAuth callback received token, provider:", provider);
       
-      // Check if token is a valid JWT (has 3 parts separated by dots)
-      const isJWT = token.split('.').length === 3;
-      
-      if (isJWT) {
-        // Token is already a valid JWT from backend, use it directly
-        handleOAuthCallback(token, refreshToken || undefined);
-        // Small delay to ensure state is updated before navigation
-        setTimeout(() => {
-          navigate("/", { replace: true });
-        }, 100);
-      } else {
-        // Token might be an exchange token, try to exchange it for a JWT
-        authAPI.exchangeGoogleToken(token).then((response) => {
-          handleOAuthCallback(response.token, response.refreshToken);
-          navigate("/", { replace: true });
-        }).catch((err) => {
-          console.error("Token exchange error:", err);
-          navigate(`/?error=oauth_failed&message=${encodeURIComponent(err instanceof Error ? err.message : "Unknown error")}`);
-        });
-      }
+      // Always exchange the token with backend for a proper JWT
+      authAPI.exchangeGoogleToken(token).then((response) => {
+        console.log("Token exchanged successfully");
+        handleOAuthCallback(response.token, response.refreshToken);
+        navigate("/", { replace: true });
+      }).catch((err) => {
+        console.error("Token exchange error:", err);
+        navigate(`/?error=oauth_failed&message=${encodeURIComponent(err instanceof Error ? err.message : "Unknown error")}`);
+      });
     } else {
       console.error("No token received from backend. URL params:", Object.fromEntries(searchParams));
       navigate("/?error=oauth_failed&message=No token received from backend");
@@ -130,7 +120,8 @@ function OAuthRedirectHandler({ children }: { children: React.ReactNode }) {
 
       const callbackRoute = `/auth/callback${hashParams.toString() ? "?" + hashParams.toString() : ""}`;
       if (pathname !== "/auth/callback" || search !== `?${hashParams.toString()}` || isHashCallback || hasOAuthQuery) {
-        window.location.replace(callbackRoute);
+        window.history.replaceState(null, '', callbackRoute);
+        window.dispatchEvent(new PopStateEvent('popstate'));
       }
     }
   }, []);

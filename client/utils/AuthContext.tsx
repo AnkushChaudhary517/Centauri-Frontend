@@ -30,14 +30,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const token = getToken();
-    if (!token || !isTokenValid(token)) {
-      clearTokens();
+    if (!token) {
       setStoredUser(null);
       setUser(null);
       setIsAuthenticated(false);
       return;
     }
 
+    // Don't validate token here - let API calls handle expiration
     const restoredUser = getStoredUser() ?? getUserFromToken(token);
     setStoredUser(restoredUser);
     setUser(restoredUser);

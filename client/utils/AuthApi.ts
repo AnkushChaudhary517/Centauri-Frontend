@@ -278,11 +278,19 @@ function decodeJwtPayload(token: string): Record<string, any> | null {
 }
 
 export function isTokenValid(token?: string | null): boolean {
-  if (!token) return false;
+  if (!token) {
+    console.log('isTokenValid: no token provided');
+    return false;
+  }
   const payload = decodeJwtPayload(token);
-  if (!payload?.exp) return true;
+  if (!payload?.exp) {
+    console.log('isTokenValid: no exp in payload, considering valid');
+    return true;
+  }
   const nowInSeconds = Math.floor(Date.now() / 1000);
-  return payload.exp > nowInSeconds;
+  const isValid = payload.exp > nowInSeconds;
+  console.log('isTokenValid: exp =', payload.exp, 'now =', nowInSeconds, 'isValid =', isValid);
+  return isValid;
 }
 
 export function getUserFromToken(token?: string | null): AuthUser | null {
@@ -393,8 +401,10 @@ async function postJson<T>(endpoint: string, body: unknown): Promise<T> {
 
 // Helper functions for localStorage
 export function setTokens(token: string, refreshToken?: string): void {
+  console.log('Setting token to localStorage:', token.substring(0, 50) + '...');
   localStorage.setItem('token', token);
   if (refreshToken) {
+    console.log('Setting refreshToken to localStorage');
     localStorage.setItem('refreshToken', refreshToken);
   }
 }
@@ -466,14 +476,12 @@ export function getStoredRemainingCredits(): RemainingCredits | null {
 
 export const getToken = () => {
   const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-  if (token && !isTokenValid(token)) {
-    handleExpiredSession();
-    return null;
-  }
+  console.log('Getting token from localStorage:', token ? token.substring(0, 50) + '...' : 'null');
   return token;
 };
 export const getRefreshToken = () => localStorage.getItem('refreshToken');
 export const clearTokens = () => {
+  console.log('Clearing tokens from localStorage');
   localStorage.removeItem('token');
   localStorage.removeItem('authToken');
   localStorage.removeItem('refreshToken');
@@ -522,7 +530,6 @@ export function ensureSessionIsValid(): string | null {
   }
 
   if (!isTokenValid(token)) {
-    handleExpiredSession();
     return null;
   }
 
@@ -645,7 +652,10 @@ export async function apiCall<T>(
   // Always include Bearer token if available (after login)
   const token = ensureSessionIsValid();
   if (token) {
+    console.log('apiCall: including token in request to', endpoint);
     finalHeaders['Authorization'] = `Bearer ${token}`;
+  } else {
+    console.log('apiCall: no token available for request to', endpoint);
   }
 
   const url = `${API_BASE_URL}${endpoint}`;
